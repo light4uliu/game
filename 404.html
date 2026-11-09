@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>找不到頁面｜神殿遊戲室</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:#0f0b06;color:#f1e6c8;font:16px/1.8 'Noto Sans TC','PingFang TC','Microsoft JhengHei',system-ui,sans-serif}
+h1{font:900 56px/1.2 'Noto Serif TC','Songti TC',serif;color:#e0a93a;margin:0 0 8px;letter-spacing:.1em}
+p{color:#b09a74;margin:0 0 22px}
+a{display:inline-block;color:#1c1204;background:#e0a93a;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:4px}
+</style>
+</head>
+<body>
+<div>
+<h1>404</h1>
+<p>這個頁面不在墓穴裡。可能是網址打錯，或頁面已經搬家。</p>
+<a id="home" href="/">回到首頁</a>
+</div>
+<script>
+(function(){
+  var h=location.hostname, root='/';
+  if(/\.github\.io$/.test(h)){ var seg=location.pathname.split('/')[1]; if(seg) root='/'+seg+'/'; }
+  document.getElementById('home').setAttribute('href',root);
+})();
+</script>
+</body>
+</html>
