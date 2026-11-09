@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>神殿五子棋</title>
+<style>
+:root{
+  --night:#0f0b06; --slab:#1a130b; --edge:#4d381a; --papyrus:#f1e6c8; --dim:#b09a74;
+  --gold:#e0a93a; --gold-hi:#f7cf6a; --lapis:#2a4fb0; --lapis-hi:#7fa0ff; --turq:#37d6c4;
+  --serif:'Noto Serif TC','Songti TC','PMingLiU',serif;
+  --sans:'Noto Sans TC','PingFang TC','Microsoft JhengHei',system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--night);color:var(--papyrus);font:15px/1.6 var(--sans)}
+body{min-height:100vh;padding:12px 12px calc(16px + env(safe-area-inset-bottom));
+  background:radial-gradient(ellipse at 50% 0,#2a1d0e 0,var(--night) 60%)}
+.wrap{max-width:560px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+h1{font:900 24px/1.2 var(--serif);letter-spacing:.12em}
+h1 b{color:var(--gold)}
+.band{height:6px;margin-bottom:10px;background:repeating-linear-gradient(90deg,var(--gold) 0 10px,var(--lapis) 10px 16px,var(--gold) 16px 20px,var(--turq) 20px 24px);opacity:.85}
+button{font:700 14px var(--sans);color:var(--papyrus);background:var(--slab);border:1px solid var(--edge);border-radius:6px;padding:8px 14px;min-height:40px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--gold)}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible{outline:2px solid var(--gold-hi);outline-offset:2px}
+.hud{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:10px}
+.pl{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--edge);border-radius:6px;background:var(--slab);min-width:0;transition:border-color .2s,box-shadow .2s}
+.pl.r{flex-direction:row-reverse;text-align:right}
+.pl.on{border-color:var(--gold-hi);box-shadow:0 0 14px rgba(247,207,106,.3)}
+.dot{width:22px;height:22px;border-radius:50%;flex:none}
+.dot.g{background:radial-gradient(circle at 35% 30%,#fff1c0,#e0a93a 55%,#8a6218)}
+.dot.b{background:radial-gradient(circle at 35% 30%,#a9c1ff,#2a4fb0 55%,#12296b)}
+.pl small{display:block;color:var(--dim);font-size:12px;line-height:1.3}
+.pl span{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.mv{font:900 18px var(--serif);color:var(--gold);text-align:center;min-width:46px}
+.mv small{display:block;font:12px var(--sans);color:var(--dim)}
+.board{position:relative;border:2px solid var(--gold);border-radius:4px;box-shadow:0 0 0 4px var(--slab),0 0 0 6px var(--edge),0 18px 50px rgba(224,169,58,.14);touch-action:manipulation}
+canvas{display:block;width:100%;aspect-ratio:1/1;border-radius:2px}
+.status{text-align:center;margin:12px 0 4px;min-height:26px;font-weight:700;color:var(--gold-hi)}
+.tools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.tip{color:var(--dim);font-size:12.5px;text-align:center;margin-top:10px}
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:18px;text-align:center;background:rgba(12,8,4,.9);overflow:auto;border-radius:2px}
+.overlay[hidden]{display:none}
+.overlay h2{font:900 34px/1.15 var(--serif);letter-spacing:.14em}
+.overlay h2 b{color:var(--gold)}
+.overlay p{max-width:26em}
+.overlay .dim{color:var(--dim);font-size:13px}
+.grp{width:100%;max-width:340px}
+.grp>label{display:block;color:var(--dim);font-size:12.5px;margin-bottom:5px;text-align:left}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
+.seg button{padding:8px 4px;font-size:14px}
+.seg button[aria-pressed=true]{background:var(--gold);color:#1c1204;border-color:var(--gold)}
+.go{font:900 19px var(--serif);letter-spacing:.2em;color:#1c1204;background:var(--gold);border:0;border-radius:6px;padding:12px 34px;min-height:48px;box-shadow:0 5px 0 #8a6218}
+.go:hover:not(:disabled){background:var(--gold-hi);border:0}
+.go:active{transform:translateY(3px);box-shadow:0 2px 0 #8a6218}
+.stats{display:grid;grid-template-columns:auto auto;gap:4px 22px;font-size:14px;margin:2px 0}
+.stats span:nth-child(odd){color:var(--dim);text-align:left}
+.stats span:nth-child(even){color:var(--gold-hi);font-weight:700;text-align:right}
+.rec{font-size:12.5px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>神殿<b>五子棋</b></h1>
+    <button id="bSnd" aria-label="音效開關">音效：開</button>
+  </header>
+  <div class="band"></div>
+  <div class="hud">
+    <div class="pl" id="plA"><i class="dot g"></i><div><span id="nmA">你</span><small>太陽金．先手</small></div></div>
+    <div class="mv"><span id="mvN">0</span><small>手</small></div>
+    <div class="pl r" id="plB"><i class="dot b"></i><div><span id="nmB">電腦</span><small>青金石．後手</small></div></div>
+  </div>
+  <div class="board" id="boardBox">
+    <canvas id="cv" role="img" aria-label="五子棋棋盤"></canvas>
+    <div class="overlay" id="ov"></div>
+  </div>
+  <div class="status" id="status" aria-live="polite"></div>
+  <div class="tools">
+    <button id="bUndo">悔棋</button>
+    <button id="bHint">提示</button>
+    <button id="bResign">認輸</button>
+    <button id="bNew">新局</button>
+  </div>
+  <p class="tip" id="tip">先連成五顆（橫、直、斜都算）的一方獲勝。</p>
+</div>
+
+<script>
+/* ===== 五子棋引擎：15x15，五連（含長連）即勝 ===== */
+function makeEngine() {
+  const N = 15, SZ = N * N;
+  const DIRS = [[1, 0], [0, 1], [1, 1], [1, -1]];
+  const WIN = [];                       // 每個視窗 = 連續 5 格
+  const cellW = Array.from({ length: SZ }, () => []);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) for (const [dx, dy] of DIRS) {
+    const ex = x + dx * 4, ey = y + dy * 4;
+    if (ex < 0 || ex >= N || ey < 0 || ey >= N) continue;
+    const cells = []; for (let k = 0; k < 5; k++) cells.push((y + dy * k) * N + x + dx * k);
+    const id = WIN.length; WIN.push(cells); for (const c of cells) cellW[c].push(id);
+  }
+  const VAL = [0, 1, 10, 100, 1500, 1000000];
+  const board = new Int8Array(SZ);      // 0 空 1 先手 2 後手
+  const cnt = [new Int8Array(WIN.length), new Int8Array(WIN.length)];
+  const S = [0, 0];
+  const near = new Int16Array(SZ);      // 周圍 2 格內有幾顆子
+  const hist = [];
+  const wv = (w, c) => (cnt[1 - c][w] === 0 ? VAL[cnt[c][w]] : 0);
+
+  function put(i, col, sign) {
+    const c = col - 1;
+    for (const w of cellW[i]) {
+      S[0] -= wv(w, 0); S[1] -= wv(w, 1);
+      cnt[c][w] += sign;
+      S[0] += wv(w, 0); S[1] += wv(w, 1);
+    }
+    const x = i % N, y = (i / N) | 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < N && ny >= 0 && ny < N) near[ny * N + nx] += sign;
+    }
+  }
+  function place(i, col) { board[i] = col; put(i, col, 1); hist.push(i); }
+  function unplace() { const i = hist.pop(); const col = board[i]; board[i] = 0; put(i, col, -1); return i; }
+  function winLine(i, col) {
+    const c = col - 1;
+    for (const w of cellW[i]) if (cnt[c][w] === 5) return WIN[w];
+    return null;
+  }
+  /* 某格對 col 的價值：自己的進攻 + 擋對手的防守 */
+  function moveScore(i, col) {
+    const c = col - 1, o = 1 - c; let s = 0;
+    for (const w of cellW[i]) {
+      if (cnt[o][w] === 0) s += VAL[cnt[c][w] + 1] - VAL[cnt[c][w]];
+      if (cnt[c][w] === 0) s += (VAL[cnt[o][w] + 1] - VAL[cnt[o][w]]) * 0.95;
+    }
+    return s;
+  }
+  function candidates(col) {
+    const out = [];
+    for (let i = 0; i < SZ; i++) if (board[i] === 0 && near[i] > 0) out.push([i, moveScore(i, col)]);
+    out.sort((a, b) => b[1] - a[1]);
+    return out;
+  }
+  const FIVE = VAL[5] - VAL[4];
+  const BIG = 1e9;
+  function makesFive(i, col) {            // col 下在 i 會不會連成五
+    const c = col - 1;
+    for (const w of cellW[i]) if (cnt[1 - c][w] === 0 && cnt[c][w] === 4) return true;
+    return false;
+  }
+  /* negamax：回傳「輪到 col 時」對 col 的分數 */
+  function nega(depth, alpha, beta, col, br, ply) {
+    const cands = candidates(col);
+    if (!cands.length) return 0;
+    if (cands[0][1] >= FIVE) return BIG + depth;               // 這手能連成五
+    const oc = 3 - col;
+    let list = cands, threat = -1, two = false;
+    for (let k = 0; k < cands.length; k++) {
+      const i = cands[k][0];
+      if (makesFive(i, oc)) { if (threat < 0) threat = i; else two = true; }
+    }
+    if (threat >= 0) { if (two) return -BIG - depth; list = [[threat, 0]]; }
+    if (depth <= 0) return S[col - 1] - S[oc - 1];
+    const lim = Math.min(list.length, br[Math.min(br.length - 1, ply)]);
+    let best = -Infinity;
+    for (let k = 0; k < lim; k++) {
+      const i = list[k][0];
+      place(i, col);
+      const v = -nega(depth - 1, -beta, -alpha, oc, br, ply + 1);
+      unplace();
+      if (v > best) best = v;
+      if (best > alpha) alpha = best;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+  /* level: 1 學徒 2 祭司 3 法老 */
+  function pickMove(col, level) {
+    if (hist.length === 0) return (N >> 1) * N + (N >> 1);
+    const cands = candidates(col);
+    if (level === 1) {
+      if (cands[0][1] >= FIVE) return cands[0][0];
+      const pool = cands.slice(0, 4);
+      if (Math.random() < 0.3) return pool[Math.floor(Math.random() * pool.length)][0];
+      return cands[0][0];
+    }
+    if (cands[0][1] >= FIVE) return cands[0][0];
+    const oc = 3 - col;
+    const depth = level === 2 ? 2 : 6;
+    const br = level === 2 ? [8, 6] : [12, 9, 7, 6, 5, 4];
+    let list = cands.slice(0, br[0]);
+    // 必擋對手連五
+    for (const [i] of cands) if (makesFive(i, oc)) return i;
+    let best = -Infinity, bestI = list[0][0], scored = [];
+    for (const [i] of list) {
+      place(i, col);
+      const v = -nega(depth - 1, -BIG * 4, BIG * 4, oc, br, 1);
+      unplace();
+      scored.push([i, v]);
+      if (v > best) { best = v; bestI = i; }
+    }
+    const ties = scored.filter(s => s[1] >= best - (level === 3 ? 0 : 5));
+    return ties[Math.floor(Math.random() * ties.length)][0];
+  }
+  return { N, board, hist, place, unplace, winLine, pickMove, candidates };
+}
+
+
+</script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const N = 15;
+  const E = makeEngine();
+  const cv = $('cv'), ctx = cv.getContext('2d'), ov = $('ov'), box = $('boardBox');
+
+  /* ---------- 設定與紀錄 ---------- */
+  const LV_NAME = ['', '學徒', '祭司', '法老'];
+  let cfg = { mode: 'ai', level: 2, first: 'me' };
+  try { Object.assign(cfg, JSON.parse(localStorage.getItem('wuzi-cfg') || '{}')); } catch (e) {}
+  let rec = { 1: [0, 0], 2: [0, 0], 3: [0, 0] };
+  try { const r = JSON.parse(localStorage.getItem('wuzi-rec') || 'null'); if (r) rec = r; } catch (e) {}
+  const save = () => { try { localStorage.setItem('wuzi-cfg', JSON.stringify(cfg)); localStorage.setItem('wuzi-rec', JSON.stringify(rec)); } catch (e) {} };
+
+  /* ---------- 音效 ---------- */
+  let AC = null, snd = true, nbuf = null;
+  function ac() {
+    try {
+      if (!AC) { const A = window.AudioContext || window.webkitAudioContext; if (A) { AC = new A();
+        nbuf = AC.createBuffer(1, AC.sampleRate / 4, AC.sampleRate); const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; } }
+      if (AC && AC.state === 'suspended') AC.resume().catch(() => {});
+    } catch (e) { AC = null; }
+    return AC;
+  }
+  function tone(f, d, type, v, delay, slide) {
+    if (!snd || !AC) return;
+    const t = AC.currentTime + (delay || 0), o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || 'triangle'; o.frequency.setValueAtTime(f, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t + d);
+    g.gain.setValueAtTime(v || .05, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d + .02);
+  }
+  function click(col) {
+    if (!snd || !AC) return;
+    const t = AC.currentTime, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+    s.buffer = nbuf; f.type = 'bandpass'; f.frequency.value = col === 1 ? 1500 : 1000;
+    g.gain.setValueAtTime(.35, t); g.gain.exponentialRampToValueAtTime(.0001, t + .07);
+    s.connect(f); f.connect(g); g.connect(AC.destination); s.start(t); s.stop(t + .08);
+    tone(col === 1 ? 420 : 320, .1, 'sine', .08, 0, -120);
+  }
+  const SC = [0, 1, 4, 5, 7, 8, 10];
+  const nf = (d, o) => 220 * Math.pow(2, (SC[d % 7] + 12 * (Math.floor(d / 7) + (o || 0))) / 12);
+  const sWin = () => { [0, 2, 4, 5, 7, 9, 11, 14].forEach((d, i) => tone(nf(d, 1), .3, 'triangle', .05, i * .13)); };
+  const sLose = () => { [7, 5, 4, 1, 0].forEach((d, i) => tone(nf(d, 0), .45, 'sawtooth', .035, i * .22, -20)); };
+  $('bSnd').onclick = () => { snd = !snd; $('bSnd').textContent = '音效：' + (snd ? '開' : '關'); ac(); };
+
+  /* ---------- 狀態 ---------- */
+  let idle = true, turn = 1, over = false, thinking = false, last = -1, line = null, hover = -1, pending = -1, hint = -1, confetti = [], anim = 0, winner = 0;
+  const human = c => cfg.mode === 'pvp' || (cfg.first === 'me' ? c === 1 : c === 2);
+  const colName = c => c === 1 ? '太陽金' : '青金石';
+  function names() {
+    if (cfg.mode === 'pvp') { $('nmA').textContent = '玩家一'; $('nmB').textContent = '玩家二'; }
+    else { $('nmA').textContent = cfg.first === 'me' ? '你' : LV_NAME[cfg.level] + '（電腦）'; $('nmB').textContent = cfg.first === 'me' ? LV_NAME[cfg.level] + '（電腦）' : '你'; }
+  }
+
+  /* ---------- 繪圖 ---------- */
+  let S = 0, DPR = 1, PAD = 0, GAP = 0;
+  function resize() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    S = Math.round(cv.getBoundingClientRect().width);
+    cv.width = S * DPR; cv.height = S * DPR;
+    PAD = S * 0.055; GAP = (S - PAD * 2) / (N - 1);
+    draw();
+  }
+  const px = i => PAD + (i % N) * GAP, py = i => PAD + Math.floor(i / N) * GAP;
+  let boardImg = null;
+  function makeBoardImg() {
+    const c = document.createElement('canvas'); c.width = S * DPR; c.height = S * DPR; const g = c.getContext('2d'); g.scale(DPR, DPR);
+    const gr = g.createLinearGradient(0, 0, S, S); gr.addColorStop(0, '#c99c55'); gr.addColorStop(.5, '#d8ae68'); gr.addColorStop(1, '#bb8c47');
+    g.fillStyle = gr; g.fillRect(0, 0, S, S);
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let k = 0; k < 900; k++) { g.fillStyle = 'rgba(' + (rnd() < .5 ? '90,60,20' : '255,235,180') + ',' + (rnd() * .08).toFixed(3) + ')'; g.fillRect(rnd() * S, rnd() * S, 1 + rnd() * 2, 1 + rnd() * 2); }
+    // 外框裝飾帶
+    g.strokeStyle = 'rgba(77,56,26,.9)'; g.lineWidth = 2; g.strokeRect(3, 3, S - 6, S - 6);
+    const seg = ['#e0a93a', '#2a4fb0', '#e0a93a', '#37d6c4'];
+    for (let k = 0; k < 40; k++) { const x = 8 + k * (S - 16) / 40, w = (S - 16) / 40 - 1; g.fillStyle = seg[k % 4]; g.globalAlpha = .55;
+      g.fillRect(x, 7, w, 3); g.fillRect(x, S - 10, w, 3); g.fillRect(7, x, 3, w); g.fillRect(S - 10, x, 3, w); }
+    g.globalAlpha = 1;
+    // 格線
+    g.strokeStyle = 'rgba(60,38,12,.85)'; g.lineWidth = Math.max(1, S / 420);
+    g.beginPath();
+    for (let k = 0; k < N; k++) { const p = PAD + k * GAP; g.moveTo(p, PAD); g.lineTo(p, S - PAD); g.moveTo(PAD, p); g.lineTo(S - PAD, p); }
+    g.stroke();
+    g.lineWidth = Math.max(2, S / 200); g.strokeRect(PAD, PAD, S - 2 * PAD, S - 2 * PAD);
+    for (const [a, b] of [[3, 3], [3, 11], [11, 3], [11, 11], [7, 7]]) { g.fillStyle = 'rgba(60,38,12,.95)'; g.beginPath(); g.arc(PAD + a * GAP, PAD + b * GAP, GAP * .13, 0, 7); g.fill(); }
+    return c;
+  }
+  function stone(x, y, col, a, r) {
+    ctx.save(); ctx.globalAlpha = a == null ? 1 : a;
+    ctx.shadowColor = 'rgba(30,15,0,.55)'; ctx.shadowBlur = GAP * .18; ctx.shadowOffsetY = GAP * .07;
+    const rr = r || GAP * .44;
+    const g = ctx.createRadialGradient(x - rr * .3, y - rr * .35, rr * .1, x, y, rr);
+    if (col === 1) { g.addColorStop(0, '#fff3c4'); g.addColorStop(.55, '#e8b244'); g.addColorStop(1, '#8a6218'); }
+    else { g.addColorStop(0, '#b4c8ff'); g.addColorStop(.5, '#3a62c8'); g.addColorStop(1, '#10256a'); }
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rr, 0, 7); ctx.fill();
+    ctx.shadowColor = 'transparent'; ctx.lineWidth = Math.max(1, GAP * .05); ctx.strokeStyle = col === 1 ? 'rgba(110,72,10,.7)' : 'rgba(5,15,60,.8)'; ctx.stroke();
+    ctx.strokeStyle = col === 1 ? 'rgba(255,245,200,.55)' : 'rgba(170,200,255,.45)'; ctx.beginPath(); ctx.arc(x, y, rr * .58, 0, 7); ctx.stroke();
+    ctx.restore();
+  }
+  function draw() {
+    if (!S) return;
+    if (!boardImg || boardImg.width !== S * DPR) boardImg = makeBoardImg();
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(boardImg, 0, 0);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    for (let i = 0; i < N * N; i++) if (E.board[i]) stone(px(i), py(i), E.board[i]);
+    if (last >= 0) { ctx.strokeStyle = '#37d6c4'; ctx.lineWidth = Math.max(2, GAP * .08); ctx.beginPath(); ctx.arc(px(last), py(last), GAP * .52, 0, 7); ctx.stroke(); }
+    if (line) {
+      const t = performance.now() / 260;
+      ctx.strokeStyle = 'rgba(55,214,196,.9)'; ctx.lineWidth = GAP * .16; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(px(line[0]), py(line[0])); ctx.lineTo(px(line[4]), py(line[4])); ctx.stroke();
+      for (const i of line) { ctx.strokeStyle = 'rgba(247,207,106,' + (.6 + .4 * Math.sin(t)) + ')'; ctx.lineWidth = GAP * .1; ctx.beginPath(); ctx.arc(px(i), py(i), GAP * .55, 0, 7); ctx.stroke(); }
+    }
+    if (hint >= 0 && !over) { ctx.strokeStyle = 'rgba(55,214,196,.95)'; ctx.setLineDash([4, 3]); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px(hint), py(hint), GAP * .46, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+    const g = pending >= 0 ? pending : hover;
+    if (g >= 0 && !over && !thinking && !E.board[g] && human(turn)) {
+      stone(px(g), py(g), turn, .55);
+      if (pending >= 0) { ctx.strokeStyle = '#37d6c4'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px(g), py(g), GAP * .5, 0, 7); ctx.stroke(); }
+    }
+    for (const p of confetti) { ctx.globalAlpha = Math.max(0, Math.min(1, (p.max - p.t) / 25)); ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, p.s, p.s); }
+    ctx.globalAlpha = 1;
+  }
+  const COL = ['#f7cf6a', '#37d6c4', '#7fa0ff', '#f1e6c8', '#e0a93a'];
+  function tick() {
+    anim = 0;
+    for (const p of confetti) { p.t++; p.x += p.vx + (p.sw ? Math.sin(p.t / 9 + p.sw) * .6 : 0); p.y += p.vy; p.vy += p.g; }
+    confetti = confetti.filter(p => p.t < p.max && p.y < S + 10);
+    if (winner && confetti.length < 120 && Math.random() < .5) confetti.push({ x: Math.random() * S, y: -6, vx: 0, vy: 1 + Math.random() * 1.5, g: 0, c: COL[(Math.random() * 5) | 0], s: 3 + ((Math.random() * 3) | 0), t: 0, max: 400, sw: 1 + Math.random() * 6 });
+    draw();
+    if (line || confetti.length) anim = requestAnimationFrame(tick);
+  }
+  function startAnim() { if (!anim) anim = requestAnimationFrame(tick); }
+  function burst(n) { for (let k = 0; k < n; k++) confetti.push({ x: Math.random() * S, y: -6 - Math.random() * 60, vx: (Math.random() - .5) * .8, vy: 1 + Math.random() * 1.6, g: 0, c: COL[(Math.random() * 5) | 0], s: 3 + ((Math.random() * 3) | 0), t: 0, max: 400, sw: 1 + Math.random() * 6 }); }
+
+  /* ---------- 流程 ---------- */
+  function setStatus(t) { $('status').textContent = t; }
+  function refresh() {
+    $('mvN').textContent = E.hist.length;
+    $('plA').classList.toggle('on', !over && turn === 1);
+    $('plB').classList.toggle('on', !over && turn === 2);
+    $('bUndo').disabled = idle || thinking || E.hist.length === 0 || (cfg.mode === 'ai' && E.hist.length <= (cfg.first === 'me' ? 0 : 1) && !over);
+    $('bHint').disabled = idle || over || thinking || !human(turn);
+    $('bResign').disabled = idle || over || thinking || cfg.mode !== 'ai';
+    if (over) return;
+    if (thinking) setStatus('電腦思考中…');
+    else if (cfg.mode === 'pvp') setStatus('輪到 ' + colName(turn) + (turn === 1 ? '（玩家一）' : '（玩家二）'));
+    else setStatus(human(turn) ? '輪到你了（' + colName(turn) + '）' : '電腦思考中…');
+  }
+  function newGame() {
+    while (E.hist.length) E.unplace();
+    turn = 1; over = false; thinking = false; last = -1; line = null; pending = -1; hint = -1; winner = 0; confetti = [];
+    idle = false; names(); ov.hidden = true; draw(); refresh();
+    $('tip').textContent = cfg.mode === 'ai' ? '先連成五顆（橫、直、斜都算）的一方獲勝。手機上點一下預覽、再點同一格落子。' : '雙人同機輪流下。手機上點一下預覽、再點同一格落子。';
+    if (cfg.mode === 'ai' && !human(1)) aiMove();
+  }
+  function finish(w, ln) {
+    over = true; winner = w; line = ln; thinking = false; pending = -1; hint = -1; refresh();
+    const me = cfg.mode === 'ai' ? human(w) : true;
+    if (cfg.mode === 'ai') { rec[cfg.level][me ? 0 : 1]++; save(); }
+    if (w === 0) { setStatus('和棋'); } else if (cfg.mode === 'ai') setStatus(me ? '你贏了！' : '電腦獲勝'); else setStatus(colName(w) + ' 獲勝！');
+    if (w && me) { sWin(); burst(60); } else if (w) sLose();
+    startAnim();
+    setTimeout(() => showEnd(w, me), w ? 1400 : 300);
+  }
+  function showEnd(w, me) {
+    if (!over) return;
+    let title, sub;
+    if (w === 0) { title = '和<b>棋</b>'; sub = '棋盤滿了，誰也沒連成五。'; }
+    else if (cfg.mode === 'pvp') { title = colName(w) + '<b>獲勝</b>'; sub = '共下了 ' + E.hist.length + ' 手。'; }
+    else if (me) { title = '你<b>贏了</b>'; sub = '共 ' + E.hist.length + ' 手，擊敗' + LV_NAME[cfg.level] + '。'; }
+    else { title = '再<b>接再厲</b>'; sub = LV_NAME[cfg.level] + '在第 ' + E.hist.length + ' 手連成五子。'; }
+    const r = rec[cfg.level];
+    ov.hidden = false;
+    ov.innerHTML = '<h2>' + title + '</h2><p>' + sub + '</p>' +
+      (cfg.mode === 'ai' ? '<p class="rec">對' + LV_NAME[cfg.level] + '：' + r[0] + ' 勝 ' + r[1] + ' 負</p>' : '') +
+      '<button class="go" id="again">再來一局</button><button id="view">看棋盤</button><button id="cfgB">更改設定</button>';
+    $('again').onclick = () => { ac(); newGame(); };
+    $('view').onclick = () => { ov.hidden = true; };
+    $('cfgB').onclick = showSetup;
+  }
+  function play(i) {
+    if (over || thinking || E.board[i]) return false;
+    ac(); E.place(i, turn); last = i; pending = -1; hint = -1; click(turn);
+    const ln = E.winLine(i, turn);
+    if (ln) { draw(); return finish(turn, ln), true; }
+    if (E.hist.length >= N * N) { draw(); return finish(0, null), true; }
+    turn = 3 - turn; draw(); refresh();
+    if (cfg.mode === 'ai' && !human(turn)) aiMove();
+    return true;
+  }
+  function aiMove() {
+    thinking = true; refresh();
+    const col = turn, token = E.hist.length;
+    setTimeout(() => {
+      if (!thinking || E.hist.length !== token) return;
+      const i = E.pickMove(col, cfg.level);
+      thinking = false; play(i);
+    }, 380);
+  }
+  function undo() {
+    if (thinking || !E.hist.length) return;
+    ov.hidden = true; confetti = []; line = null; winner = 0; over = false; pending = -1; hint = -1;
+    if (cfg.mode === 'pvp') { E.unplace(); }
+    else { do { E.unplace(); } while (E.hist.length && ((E.hist.length % 2 === 0) !== (cfg.first === 'me'))); if (!E.hist.length && cfg.first !== 'me') {} }
+    turn = E.hist.length % 2 === 0 ? 1 : 2;
+    last = E.hist.length ? E.hist[E.hist.length - 1] : -1;
+    draw(); refresh();
+    if (cfg.mode === 'ai' && !human(turn)) aiMove();
+  }
+  $('bUndo').onclick = undo;
+  $('bHint').onclick = () => { if (over || thinking || !human(turn)) return; ac(); hint = E.pickMove(turn, 3); draw(); };
+  function ask(msg, yes) {
+    ov.hidden = false;
+    ov.innerHTML = '<p>' + msg + '</p><button class="go" id="yes">確定</button><button id="no">取消</button>';
+    $('yes').onclick = () => { ov.hidden = true; yes(); };
+    $('no').onclick = () => { ov.hidden = true; };
+  }
+  $('bResign').onclick = () => { if (over || thinking || cfg.mode !== 'ai') return; ask('確定認輸嗎？', () => finish(human(1) ? 2 : 1, null)); };
+  $('bNew').onclick = () => { if (E.hist.length && !over) ask('放棄這一局，回到設定畫面？', showSetup); else showSetup(); };
+
+  /* ---------- 輸入 ---------- */
+  function cellAt(e) {
+    const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * (S / r.width), y = (e.clientY - r.top) * (S / r.height);
+    const cx = Math.round((x - PAD) / GAP), cy = Math.round((y - PAD) / GAP);
+    if (cx < 0 || cx >= N || cy < 0 || cy >= N) return -1;
+    return cy * N + cx;
+  }
+  cv.addEventListener('pointermove', e => { if (e.pointerType === 'touch') return; const c = cellAt(e); if (c !== hover) { hover = c; draw(); } });
+  cv.addEventListener('pointerleave', () => { hover = -1; draw(); });
+  cv.addEventListener('pointerdown', e => {
+    if (over || thinking || !human(turn)) return;
+    const c = cellAt(e); if (c < 0 || E.board[c]) return;
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+      if (pending === c) play(c); else { pending = c; draw(); }
+    } else play(c);
+  });
+
+  /* ---------- 設定畫面 ---------- */
+  function showSetup() {
+    ov.hidden = false; idle = true; thinking = false; refresh(); setStatus('請選擇模式');
+    const seg = (key, items) => '<div class="seg">' + items.map(([v, t]) => '<button data-k="' + key + '" data-v="' + v + '" aria-pressed="' + (String(cfg[key]) === String(v)) + '">' + t + '</button>').join('') + '</div>';
+    ov.innerHTML =
+      '<h2>神殿<b>五子棋</b></h2>' +
+      '<p class="dim">先連成五顆就贏。橫、直、斜都算。</p>' +
+      '<div class="grp"><label>對手</label>' + seg('mode', [['ai', '對電腦'], ['pvp', '雙人同機']]) + '</div>' +
+      '<div class="grp" id="gLv"><label>難度</label>' + seg('level', [[1, '學徒'], [2, '祭司'], [3, '法老']]) + '</div>' +
+      '<div class="grp" id="gFirst"><label>誰先手（先手執金）</label>' + seg('first', [['me', '我先'], ['ai', '電腦先']]) + '</div>' +
+      '<p class="rec" id="recLine"></p>' +
+      '<button class="go" id="start">開始對弈</button>';
+    const sync = () => {
+      $('gLv').style.display = $('gFirst').style.display = cfg.mode === 'ai' ? '' : 'none';
+      ov.querySelectorAll('[data-k]').forEach(b => b.setAttribute('aria-pressed', String(cfg[b.dataset.k]) === b.dataset.v));
+      const r = rec[cfg.level]; $('recLine').textContent = cfg.mode === 'ai' ? '對' + LV_NAME[cfg.level] + '戰績：' + r[0] + ' 勝 ' + r[1] + ' 負' : '';
+    };
+    ov.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { const k = b.dataset.k; cfg[k] = (k === 'level') ? +b.dataset.v : b.dataset.v; sync(); });
+    $('start').onclick = () => { ac(); save(); newGame(); };
+    sync();
+  }
+
+  addEventListener('resize', () => { boardImg = null; resize(); });
+  resize(); names(); showSetup(); refresh(); setStatus('請選擇模式');
+  if (window.__TEST__) window.__g = { E, cfg, play, undo, state: () => ({ turn, over, thinking, winner, n: E.hist.length }), newGame };
+})();
+</script>
+</body>
+</html>

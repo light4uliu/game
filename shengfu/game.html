@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>聖符守衛戰</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* Direction: a tomb lit by torches. Night-black, sandstone, gold leaf, and one lapis blue. The playfield is a carved slab, the HUD stays quiet. */
+:root{
+  --night:#0f0b06; --slab:#1a130b; --edge:#4d381a; --papyrus:#f1e6c8; --dim:#b09a74;
+  --gold:#e0a93a; --gold-hi:#f7cf6a; --lapis:#2a4fb0; --turq:#37d6c4;
+  --serif:'Noto Serif TC','Songti TC','PMingLiU',serif;
+  --sans:'Noto Sans TC','PingFang TC','Microsoft JhengHei',system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%}
+body{
+  background:var(--night);
+  background-image:radial-gradient(ellipse at 50% 30%,#3d2810 0%,var(--night) 62%);
+  background-repeat:no-repeat;
+  color:var(--papyrus);font-family:var(--sans);
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overflow-x:hidden;
+}
+.stage{max-width:540px;margin:0 auto;padding:12px 16px 20px;display:flex;flex-direction:column;gap:10px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-family:var(--serif);font-weight:900;font-size:24px;letter-spacing:.1em;line-height:1.1}
+h1 b{color:var(--gold);font-weight:900}
+.band{height:6px;border-radius:1px;background:
+  repeating-linear-gradient(90deg,var(--gold) 0 10px,var(--lapis) 10px 16px,var(--gold) 16px 20px,var(--turq) 20px 24px);opacity:.85}
+.btns{display:flex;gap:8px}
+.btns button{
+  font:700 13px var(--sans);color:var(--papyrus);background:var(--slab);border:1px solid var(--edge);
+  border-radius:6px;padding:7px 12px;min-height:34px;cursor:pointer;
+}
+.btns button:hover{border-color:var(--gold)}
+.btns button:focus-visible,.overlay button:focus-visible{outline:2px solid var(--gold-hi);outline-offset:2px}
+.hud{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.hud div{background:var(--slab);border:1px solid var(--edge);border-radius:6px;padding:5px 7px;display:flex;flex-direction:column;gap:1px;min-width:0}
+.hud span{color:var(--dim);font-size:11px;letter-spacing:.12em}
+.hud b{font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.screen{position:relative;border:2px solid var(--gold);border-radius:3px;background:#000;box-shadow:0 0 0 4px var(--slab),0 0 0 6px var(--edge),0 20px 60px rgba(224,169,58,.16)}
+canvas{display:block;width:100%;aspect-ratio:1/1;image-rendering:crisp-edges;image-rendering:pixelated}
+.overlay{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:11px;padding:20px;text-align:center;background:rgba(12,8,4,.88);overflow:auto;
+}
+.overlay[hidden]{display:none}
+.overlay h2{font-family:var(--serif);font-weight:900;font-size:38px;letter-spacing:.14em;line-height:1.1}
+.overlay h2 b{color:var(--gold);font-weight:900}
+.overlay p{font-size:14px;line-height:1.7;max-width:30em}
+.overlay p.dim{color:var(--dim);font-size:12.5px}
+.stats{display:grid;grid-template-columns:auto auto;gap:4px 22px;font-size:14px;text-align:left;margin:4px 0}
+.stats span:nth-child(odd){color:var(--dim)}
+.stats span:nth-child(even){color:var(--gold-hi);font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.foes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;max-width:340px}
+.foes div{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;color:var(--papyrus)}
+.foes canvas{width:48px;height:48px;aspect-ratio:auto;background:#241a0e;border:1px solid var(--edge);border-radius:4px}
+.foes small{color:var(--dim);font-size:11px}
+.overlay button{
+  margin-top:4px;font:900 18px var(--serif);letter-spacing:.2em;color:#1c1204;background:var(--gold);
+  border:0;border-radius:6px;padding:12px 30px;min-height:46px;cursor:pointer;
+}
+.overlay button:active{transform:translateY(1px)}
+.controls{display:flex;justify-content:space-between;align-items:center;padding:6px 8px 0}
+.pad{position:relative;width:152px;height:152px;border-radius:50%;background:var(--slab);border:2px solid var(--edge);touch-action:none}
+.pad i{position:absolute;width:28px;height:28px;background:var(--dim);clip-path:polygon(50% 0,100% 100%,0 100%);opacity:.7}
+.pad .u{top:12px;left:62px}
+.pad .d{bottom:12px;left:62px;transform:rotate(180deg)}
+.pad .l{left:12px;top:62px;transform:rotate(-90deg)}
+.pad .r{right:12px;top:62px;transform:rotate(90deg)}
+.pad[data-d="0"] .u,.pad[data-d="1"] .r,.pad[data-d="2"] .d,.pad[data-d="3"] .l{background:var(--gold-hi);opacity:1}
+.fire{
+  width:102px;height:102px;border-radius:50%;border:3px solid var(--gold-hi);background:var(--lapis);color:var(--papyrus);
+  font:900 20px var(--serif);letter-spacing:.1em;touch-action:none;cursor:pointer;box-shadow:0 6px 0 #14286a;
+}
+.fire.on{transform:translateY(4px);box-shadow:0 2px 0 #14286a;background:#3a63d0}
+.keys{font-size:12.5px;color:var(--dim);line-height:1.7;text-align:center}
+@media (hover:hover) and (pointer:fine){.controls{display:none}}
+@media (hover:none){.keys{display:none}}
+@media (max-width:380px){h1{font-size:21px}.overlay h2{font-size:32px}}
+</style>
+</head>
+<body>
+<main class="stage" id="stage">
+  <header class="top">
+    <h1>聖符<b>守衛戰</b></h1>
+    <div class="btns">
+      <button type="button" id="bPause">暫停</button>
+      <button type="button" id="bMute">靜音</button>
+    </div>
+  </header>
+  <div class="band" aria-hidden="true"></div>
+
+  <section class="hud" aria-label="戰況">
+    <div><span>關卡</span><b id="hLevel">1</b></div>
+    <div><span>生命</span><b id="hLives">3</b></div>
+    <div><span>怪物</span><b id="hEnemy">20</b></div>
+    <div><span>魔力</span><b id="hPower">☆☆☆</b></div>
+    <div><span>分數</span><b id="hScore">0</b></div>
+  </section>
+
+  <div class="screen">
+    <canvas id="cv" width="416" height="416" aria-label="遊戲畫面"></canvas>
+    <div class="overlay" id="ov"></div>
+  </div>
+
+  <div class="controls">
+    <div class="pad" id="pad" data-d="-1" aria-label="方向盤"><i class="u"></i><i class="d"></i><i class="l"></i><i class="r"></i></div>
+    <button type="button" class="fire" id="fireBtn">施法</button>
+  </div>
+  <p class="keys">方向鍵或 WASD 移動　空白鍵或 J 施法　P 暫停　M 靜音</p>
+</main>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- constants ---------- */
+const CELL = 16, N = 26, W = N * CELL;        // 26x26 cells of 16px = 416px field
+const R = 8;                                  // maze is 8x8 rooms; a room is 2 cells, a wall is 1 cell
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];     // up, right, down, left
+const ROOM = k => 3 * k + 1;                  // first cell index of room k
+const RPX = k => ROOM(k) * CELL;              // pixel position of room k (tank top-left)
+const BI = 3, BJ = 7;                         // the ankh shrine sits in room (3,7)
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+cv.width = W; cv.height = W;
+const $ = id => document.getElementById(id);
+
+/* ---------- pixel art ---------- */
+const WIZ_F = [
+  ".......HH....OO.",
+  "......HHHH...OO.",
+  "......HHHH....T.",
+  ".....HHHHHH...T.",
+  "....GGGGGGGG..T.",
+  ".....SESSES...T.",
+  ".....WWWWWW...T.",
+  "....rRRWWRRr..T.",
+  "...SrRRRRRRrS.T.",
+  "...SrRRGGRRrS.T.",
+  "....rRRRRRRr..T.",
+  "....rRRRRRRr..T.",
+  "....rRRGGRRr..T.",
+  "...rRRRRRRRRr.T.",
+  "...rrrrrrrrrr.T.",
+  "....EE....EE..T."
+];
+const WIZ_B = WIZ_F.map((r, i) => i === 5 || i === 6 ? ".....HHHHHH...T." : i === 7 ? "....rRRRRRRr..T." : r);
+const WIZ_S = WIZ_F.map((r, i) => i === 5 ? ".....ESSSSS...T." : i === 6 ? ".....WWWWSS...T." : r);
+const SCARAB = [
+  "......GGGG......",
+  ".....GHHHHG.....",
+  "..L..HHHHHH..L..",
+  "...L.BBTTBB.L...",
+  "..LLBBBTTBBBLL..",
+  "....BBBGGBBB....",
+  "..LLBBbGGbBBLL..",
+  "....BBbGGbBB....",
+  "...LBBbGGbBBL...",
+  "..LLBBbGGbBBLL..",
+  "....BBbGGbBB....",
+  "...L.BbGGbB.L...",
+  "..L..BbbbbB..L..",
+  "......BBBB......",
+  "................",
+  "................"
+];
+const SCORP = [
+  ".PPP........PPP.",
+  ".P.PP......PP.P.",
+  "...PPC....CPP...",
+  ".....CCEECC.....",
+  "..c.CCCCCCCC.c..",
+  "...cCCccccCCc...",
+  "..c.CCCCCCCC.c..",
+  "...cCCccccCCc...",
+  "..c..CCCCCC..c..",
+  "......CCCC......",
+  ".......cc.......",
+  ".......cc.......",
+  "........cc......",
+  "........cc......",
+  "........YY......",
+  "................"
+];
+const MUMMY = [
+  "................",
+  ".....BBBBBB.....",
+  "....BbBBBBbB....",
+  "....BBEBBEBB....",
+  "....BbBBBBbB....",
+  ".....BBbBBB.....",
+  "..BB.BBBBBB.BB..",
+  ".BbBBBbBBbBBBbB.",
+  ".BBbBBBBBBBBbBB.",
+  ".bBBBbBBBBbBBBb.",
+  "..BB.BbBBbB.BB..",
+  "..bB.BBBBBB.Bb..",
+  "....BbBBBBbB....",
+  "....BBB..BBB....",
+  "....BbB..BbB....",
+  "...SBBB..BBBS..."
+];
+const ANUBIS = [
+  "...DD......DD..P",
+  "...DDD....DDD..L",
+  "....DDDDDDDD...L",
+  "....DEDDDDED...L",
+  "....DDDddDDD...L",
+  ".....DDDDDD....L",
+  "...GGGGGGGGGG..L",
+  "..SSGGGGGGSS...L",
+  "..SSSGGGGGSSS..L",
+  "..SS.KKKKKK.SS.L",
+  "..SS.KKKKKK.SS.L",
+  ".....KKKKKK....L",
+  "....KKKKKKKK...L",
+  "....KK....KK...L",
+  "....SS....SS...L",
+  "...DDD....DDD..L"
+];
+const WIZ_PAL = (orb) => ({ H:'#2a4fb0', G:'#f2c14e', S:'#e8b48a', W:'#f0ece0', R:'#3b63d0', r:'#2a4aa0', O:orb, T:'#8a5a2a', E:'#1a1209' });
+const CRE = {
+  w0: { type:'wiz', pal: WIZ_PAL('#37e0c8') },
+  w1: { type:'wiz', pal: WIZ_PAL('#6fe05a') },
+  w2: { type:'wiz', pal: WIZ_PAL('#f2c14e') },
+  w3: { type:'wiz', pal: WIZ_PAL('#ff5a8a') },
+  scarab:   { type:'rot', rows:SCARAB, pal:{ B:'#1f6fd0', b:'#154a96', G:'#f2c14e', T:'#37d6c4', L:'#0e2a58', H:'#143c78' } },
+  scorpion: { type:'rot', rows:SCORP,  pal:{ C:'#c98a2e', c:'#8a5a1a', P:'#e0a040', E:'#222222', Y:'#e23a2a' } },
+  mummy:    { type:'up',  rows:MUMMY,  pal:{ B:'#d8cdb0', b:'#a89e80', E:'#e23a2a', S:'#2a2118' } },
+  anubis:   { type:'up',  rows:ANUBIS, pal:{ D:'#26262f', d:'#4a4a60', G:'#f2c14e', S:'#b5774a', K:'#efe8d8', E:'#f2c14e', L:'#c9a46a', P:'#e8e8e8' } }
+};
+function mk(w, h, fn) { const c = document.createElement('canvas'); c.width = w; c.height = h; fn(c.getContext('2d'), c); return c; }
+function paint(rows, pal) {
+  return mk(32, 32, c => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const ch = rows[y][x]; if (ch === '.' || !pal[ch]) continue;
+      c.fillStyle = pal[ch]; c.fillRect(x * 2, y * 2, 2, 2);
+    }
+  });
+}
+const sprCache = {};
+function sprite(name, dir) {
+  const key = name + dir; if (sprCache[key]) return sprCache[key];
+  const d = CRE[name]; let out;
+  if (d.type === 'rot') {
+    const base = paint(d.rows, d.pal);
+    out = mk(32, 32, c => { c.translate(16, 16); c.rotate(dir * Math.PI / 2); c.translate(-16, -16); c.drawImage(base, 0, 0); });
+  } else if (d.type === 'up') {
+    const base = paint(d.rows, d.pal);
+    out = mk(32, 32, c => { if (dir === 3) { c.translate(32, 0); c.scale(-1, 1); } c.drawImage(base, 0, 0); });
+  } else {
+    const rows = dir === 0 ? WIZ_B : dir === 2 ? WIZ_F : WIZ_S;
+    const base = paint(rows, d.pal);
+    out = mk(32, 32, c => { if (dir === 1) { c.translate(32, 0); c.scale(-1, 1); } c.drawImage(base, 0, 0); });
+  }
+  return (sprCache[key] = out);
+}
+const silCache = new Map();
+function silhouette(img, color) {
+  const k = img; let m = silCache.get(k); if (!m) { m = {}; silCache.set(k, m); }
+  if (m[color]) return m[color];
+  return (m[color] = mk(32, 32, c => { c.drawImage(img, 0, 0); c.globalCompositeOperation = 'source-in'; c.fillStyle = color; c.fillRect(0, 0, 32, 32); }));
+}
+
+/* tiles: sandstone with carved hieroglyphs, cracked sandstone, floor */
+const GLYPHS = [
+  ["..XXX...", ".X...X..", ".X...X..", "..XXX...", ".XXXXX..", "...X....", "...X....", "...X...."],   // ankh
+  ["........", ".XXXXXX.", "X..XX..X", ".XXXXXX.", "....X...", "...X.XX.", "........", "........"],   // eye
+  ["........", "XX..XX..", "..XX..XX", "XX..XX..", "..XX..XX", "........", "........", "........"],   // water
+  ["...XX...", "..XXXX..", "...XX...", "..XXXX..", "...XX...", "..XXXX..", "...XX...", "...XX..."]    // djed pillar
+];
+const STONE = [];
+for (let v = 0; v < 8; v++) STONE.push(mk(16, 16, c => {
+  c.fillStyle = '#c4994f'; c.fillRect(0, 0, 16, 16);
+  c.fillStyle = '#d9b36b'; c.fillRect(0, 0, 16, 2); c.fillRect(0, 0, 2, 16);
+  c.fillStyle = '#7a5628'; c.fillRect(0, 14, 16, 2); c.fillRect(14, 0, 2, 16);
+  c.fillStyle = '#a77d3a'; c.fillRect(2, 12, 12, 2);
+  if (v < 4) { c.fillStyle = '#6b4a1e'; const g = GLYPHS[v]; for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) if (g[y][x] === 'X') c.fillRect(4 + x, 3 + y * 1, 1, 1); }
+  else if (v === 4) { c.fillStyle = '#a77d3a'; c.fillRect(3, 5, 10, 1); c.fillRect(3, 9, 10, 1); }
+}));
+const CRACK = mk(16, 16, c => {
+  c.fillStyle = '#e6c88e'; c.fillRect(0, 0, 16, 16);
+  c.fillStyle = '#f3dcaa'; c.fillRect(0, 0, 16, 2); c.fillRect(0, 0, 2, 16);
+  c.fillStyle = '#9a7840'; c.fillRect(0, 14, 16, 2); c.fillRect(14, 0, 2, 16);
+  c.fillStyle = '#5a3d18';
+  [[7,0],[7,2],[6,3],[6,5],[8,6],[9,7],[9,9],[8,10],[7,11],[7,13],[5,5],[4,6],[11,8],[12,9]].forEach(p => c.fillRect(p[0], p[1], 1, 2));
+  c.fillStyle = '#c9a85f'; c.fillRect(3, 11, 2, 1); c.fillRect(11, 3, 2, 1);
+});
+let floorImg = null, vigImg = null;
+function buildFloor() {
+  floorImg = mk(W, W, c => {
+    c.fillStyle = '#2a1d0f'; c.fillRect(0, 0, W, W);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      c.fillStyle = ((x + y) & 1) ? '#2e2011' : '#271b0d'; c.fillRect(x * CELL, y * CELL, CELL, CELL);
+      const h = (x * 73856093 ^ y * 19349663) >>> 0;
+      c.fillStyle = 'rgba(224,169,58,.07)'; c.fillRect(x * CELL + (h % 13), y * CELL + ((h >> 4) % 13), 2, 1);
+      c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(x * CELL + ((h >> 8) % 13), y * CELL + ((h >> 12) % 13), 1, 1);
+    }
+  });
+  vigImg = mk(W, W, c => {
+    const g = c.createRadialGradient(W / 2, W / 2, W * 0.28, W / 2, W / 2, W * 0.78);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.55)');
+    c.fillStyle = g; c.fillRect(0, 0, W, W);
+  });
+}
+buildFloor();
+
+/* ---------- audio ---------- */
+let AC = null, muted = false, MASTER = null, MBUS = null, SBUS = null, NBUF = null;
+function ac() {
+  try {
+    if (!AC) {
+      const A = window.AudioContext || window.webkitAudioContext;
+      if (A) {
+        AC = new A();
+        MASTER = AC.createGain(); MASTER.gain.value = muted ? 0 : 0.9;
+        const comp = AC.createDynamicsCompressor(); MASTER.connect(comp); comp.connect(AC.destination);
+        MBUS = AC.createGain(); MBUS.gain.value = 0.55; MBUS.connect(MASTER);
+        SBUS = AC.createGain(); SBUS.gain.value = 1; SBUS.connect(MASTER);
+        const dl = AC.createDelay(1); dl.delayTime.value = 0.34;
+        const fb = AC.createGain(); fb.gain.value = 0.32;
+        wet = AC.createGain(); wet.gain.value = 0.35; MBUS.delaySend = AC.createGain(); MBUS.delaySend.gain.value = 1;
+        MBUS.delaySend.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(MBUS);
+        NBUF = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+        const d = NBUF.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+    }
+    if (AC && AC.state === 'suspended') AC.resume().catch(() => {});
+  } catch (e) { AC = null; }
+  return AC;
+}
+var wet;
+function tone(f, d, type, vol, slide, delay) {
+  if (muted) return; const a = AC; if (!a) return;
+  try {
+    const o = a.createOscillator(), gn = a.createGain(), t0 = a.currentTime + (delay || 0);
+    o.type = type || 'square'; o.frequency.setValueAtTime(f, t0);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t0 + d);
+    gn.gain.setValueAtTime(vol || 0.04, t0); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+    o.connect(gn); gn.connect(SBUS); o.start(t0); o.stop(t0 + d + 0.02);
+  } catch (e) {}
+}
+function noiseHit(t0, d, vol, type, f0, f1, dest) {
+  const a = AC; if (!a || !NBUF) return;
+  const src = a.createBufferSource(), fl = a.createBiquadFilter(), gn = a.createGain();
+  src.buffer = NBUF; fl.type = type; fl.frequency.setValueAtTime(f0, t0);
+  if (f1) fl.frequency.exponentialRampToValueAtTime(f1, t0 + d);
+  gn.gain.setValueAtTime(vol, t0); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+  src.connect(fl); fl.connect(gn); gn.connect(dest || SBUS); src.start(t0, Math.random() * 0.5); src.stop(t0 + d + 0.02);
+}
+/* D phrygian dominant: D Eb F# G A Bb C */
+const SCALE = [0, 1, 4, 5, 7, 8, 10];
+const nf = (deg, oct) => 146.83 * Math.pow(2, (SCALE[((deg % 7) + 7) % 7] + 12 * (Math.floor(deg / 7) + (oct || 0))) / 12);
+const sfx = {
+  cast() { tone(660, .09, 'triangle', .035, 380); },
+  boom() { if (muted || !AC) return; const t = AC.currentTime; noiseHit(t, .45, .22, 'lowpass', 1400, 90); tone(150, .35, 'sawtooth', .05, -110); },
+  clink() { tone(900, .05, 'triangle', .04); tone(1350, .04, 'square', .012); },
+  crumble() { if (muted || !AC) return; noiseHit(AC.currentTime, .16, .12, 'bandpass', 900, 260); tone(200, .12, 'square', .025, -120); },
+  pick() { [0, 2, 4, 7].forEach((d, i) => tone(nf(d, 2), .12, 'square', .03, 0, i * .06)); },
+  drop() { tone(nf(4, 3), .25, 'sine', .035, 0); tone(nf(7, 3), .35, 'sine', .03, 0, .1); },
+  start() { [0, 2, 4, 7].forEach((d, i) => tone(nf(d, 1), .22, 'triangle', .045, 0, i * .11)); },
+  clear() { [0, 2, 4, 5, 7, 11].forEach((d, i) => tone(nf(d, 1), .26, 'triangle', .05, 0, i * .12)); tone(nf(7, 2), .7, 'triangle', .04, 0, .7); },
+  pop() { tone(nf(7, 3), .12, 'triangle', .03, 300); },
+  win() { [0, 2, 4, 5, 7, 9, 11, 14].forEach((d, i) => tone(nf(d, 1), .3, 'triangle', .05, 0, i * .14)); [0, 4, 7].forEach(d => tone(nf(d, 2), 1.2, 'triangle', .035, 0, 1.2)); },
+  lose() { [7, 5, 4, 1, 0].forEach((d, i) => tone(nf(d, 0), .45, 'sawtooth', .04, -20, i * .22)); }
+};
+
+/* ---------- music: generated live, no audio files ---------- */
+const MUS = { next: 0, step: 0, timer: 0, on: false };
+const BASS_SEQ = [0, 0, 3, 0, 0, 0, 1, 0];        // scale degrees per bar
+const LEAD = [
+  [4,-1,3,4,5,-1,4,3],[2,-1,1,2,3,-1,-1,-1],[4,5,6,5,4,-1,3,-1],[2,1,0,1,2,-1,-1,-1],
+  [4,5,6,5,4,-1,3,-1],[2,1,0,1,2,-1,-1,-1],[4,-1,3,4,5,-1,4,3],[2,1,0,-1,0,-1,-1,-1]
+];
+function musicMode() {
+  if (paused || muted) return 'off';
+  if (phase === 'title' || phase === 'over' || phase === 'won') return 'title';
+  if (phase === 'intro') return 'intro';
+  if (phase === 'play') return 'play';
+  return 'off';
+}
+function pluck(f, t, vol, len) {
+  const a = AC, o = a.createOscillator(), fl = a.createBiquadFilter(), gn = a.createGain();
+  o.type = 'sawtooth'; o.frequency.value = f;
+  fl.type = 'lowpass'; fl.frequency.setValueAtTime(2400, t); fl.frequency.exponentialRampToValueAtTime(380, t + len);
+  gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(vol, t + 0.012); gn.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  o.connect(fl); fl.connect(gn); gn.connect(MBUS); gn.connect(MBUS.delaySend); o.start(t); o.stop(t + len + 0.05);
+}
+function bassNote(f, t, vol, len) {
+  const a = AC, o = a.createOscillator(), gn = a.createGain();
+  o.type = 'triangle'; o.frequency.value = f;
+  gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(vol, t + 0.01); gn.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  o.connect(gn); gn.connect(MBUS); o.start(t); o.stop(t + len + 0.05);
+}
+function drone(t, len, vol) {
+  const a = AC, fl = a.createBiquadFilter(), gn = a.createGain();
+  fl.type = 'lowpass'; fl.frequency.value = 520;
+  gn.gain.setValueAtTime(0.0001, t); gn.gain.linearRampToValueAtTime(vol, t + len * 0.3); gn.gain.linearRampToValueAtTime(0.0001, t + len);
+  fl.connect(gn); gn.connect(MBUS);
+  [[nf(0, -1), -6], [nf(0, -1), 6], [nf(4, -1), 0]].forEach(([f, c]) => {
+    const o = a.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = c;
+    o.connect(fl); o.start(t); o.stop(t + len + 0.05);
+  });
+}
+function dum(t, vol) {
+  const a = AC, o = a.createOscillator(), gn = a.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(55, t + 0.16);
+  gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+  o.connect(gn); gn.connect(MBUS); o.start(t); o.stop(t + 0.25);
+}
+function musicStep(mode, t, sd) {
+  const s = MUS.step % 16, bar = Math.floor(MUS.step / 16) % 8;
+  if (s === 0) drone(t, sd * 16, mode === 'title' ? 0.06 : 0.04);
+  const root = BASS_SEQ[bar];
+  if (mode === 'title') {
+    if (s === 0 || s === 10) bassNote(nf(root, -1), t, 0.14, sd * 6);
+    if (s % 2 === 0) { const d = LEAD[bar][s / 2]; if (d >= 0 && (s % 4 === 0 || bar % 2)) pluck(nf(d, 1), t, 0.05, sd * 5); }
+    return;
+  }
+  if (s === 0 || s === 6 || s === 8 || s === 12) bassNote(nf(root, -1), t, 0.16, sd * 3);
+  if (mode === 'intro') {
+    if (s % 4 === 0) { const d = LEAD[bar][s / 2]; if (d >= 0) pluck(nf(d, 1), t, 0.06, sd * 4); }
+    return;
+  }
+  /* play: darbuka groove + lead */
+  if (s === 0 || s === 8) dum(t, 0.3);
+  if (s === 10) dum(t, 0.16);
+  if (s === 4 || s === 6 || s === 12 || s === 14) noiseHit(t, 0.06, 0.07, 'bandpass', 3200, 2600, MBUS);
+  if (s % 4 === 2) noiseHit(t, 0.03, 0.025, 'highpass', 7000, 0, MBUS);
+  if (s % 2 === 0) { const d = LEAD[bar][s / 2]; if (d >= 0) pluck(nf(d, 1), t, 0.085, sd * 4); }
+  if (G.level >= 3 && bar >= 4 && s % 2 === 0) { const d = LEAD[bar][s / 2]; if (d >= 0) pluck(nf(d + 4, 1), t, 0.03, sd * 3); }
+}
+function musicTick() {
+  if (!AC || AC.state !== 'running') return;
+  const mode = musicMode();
+  const now = AC.currentTime;
+  if (mode === 'off') { MUS.next = Math.max(MUS.next, now + 0.05); return; }
+  const bpm = mode === 'play' ? 100 + Math.min(G.level, 8) * 4 : 72;
+  const sd = 60 / bpm / 4;
+  if (MUS.next < now) MUS.next = now + 0.05;
+  while (MUS.next < now + 0.2) { musicStep(mode, MUS.next, sd); MUS.next += sd; MUS.step++; }
+}
+function musicStart() {
+  if (!ac() || MUS.on) return;
+  MUS.on = true; MUS.timer = setInterval(musicTick, 40);
+}
+['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, musicStart, { passive: true }));
+
+/* ---------- state ---------- */
+let grid = new Uint8Array(N * N);              // 0 floor, 1 cracked wall (breakable), 2 stone wall
+const BASE = { x: ROOM(BI), y: ROOM(BJ), alive: true };
+const SEAL = [[ROOM(BI), ROOM(BJ) - 1], [ROOM(BI) + 1, ROOM(BJ) - 1]];   // door in front of the shrine
+let tanks = [], bullets = [], fx = [], pups = [];
+let player = null;
+let G = { level: 1, score: 0, lives: 3, power: 0, hi: 0, deaths: 0 };
+const FINAL = 8;
+let LV = { frames: 0, lost: 0, bonus: 0, perfect: true, secs: 0 };
+let PART = [], lockT = 0;
+let phase = 'title', phaseT = 0, paused = false, frameN = 0, overWhy = '';
+let queue = [], spawnT = 0, spawnIdx = 0, spawnedN = 0;
+let shovelT = 0, freezeT = 0, respawnT = 0;
+try { G.hi = +localStorage.getItem('shengfu-hi') || 0; } catch (e) {}
+
+const KINDS = {
+  scarab:   { name: '聖甲蟲',   speed: 1.9, hp: 1, bsp: 6, pts: 100, hunter: 0.7 },
+  scorpion: { name: '沙漠蠍',   speed: 1.2, hp: 2, bsp: 5, pts: 200, hunter: 0.35 },
+  mummy:    { name: '木乃伊',   speed: 0.8, hp: 3, bsp: 4, pts: 300, hunter: 0.25 },
+  anubis:   { name: '胡狼守衛', speed: 0.7, hp: 5, bsp: 6, pts: 500, hunter: 0.3 }
+};
+
+/* ---------- helpers ---------- */
+const ov = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+const rnd = n => Math.floor(Math.random() * n);
+const clampR = v => Math.max(0, Math.min(R - 1, v));
+
+function mkTank(o) {
+  return Object.assign({ x: 0, y: 0, dir: 0, speed: 1, hp: 1, maxhp: 1, cd: 0, spawn: 0, shield: 0, frame: 0, ft: 0, hurt: 0,
+    flash: false, kind: 'scarab', player: false, alive: true, bsp: 4, tx: 0, ty: 0, hold: false, aiT: 0, stuck: 0, hunter: false, fx: 0, fy: 0 }, o);
+}
+function solidAt(x, y) {
+  if (x < 0 || y < 0 || x + 32 > W || y + 32 > W) return true;
+  const x0 = Math.floor(x / CELL), x1 = Math.floor((x + 31.99) / CELL);
+  const y0 = Math.floor(y / CELL), y1 = Math.floor((y + 31.99) / CELL);
+  for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++) if (grid[cy * N + cx]) return true;
+  return ov(x, y, 32, 32, BASE.x * CELL, BASE.y * CELL, 32, 32);
+}
+function tankBlocked(t, x, y) {
+  for (const o of tanks) {
+    if (o === t || !o.alive) continue;
+    if (ov(t.x, t.y, 32, 32, o.x, o.y, 32, 32)) continue;
+    if (ov(x, y, 32, 32, o.x, o.y, 32, 32)) return true;
+  }
+  return false;
+}
+function moveTank(t, dir, spd) {
+  const mx = t.x + DIRS[dir][0] * spd, my = t.y + DIRS[dir][1] * spd;
+  if (!solidAt(mx, my) && !tankBlocked(t, mx, my)) { t.x = mx; t.y = my; return true; }
+  return false;
+}
+
+/* ---------- maze ---------- */
+function openWall(i, j, d, plug) {          // d: 1 = wall to the right of room (i,j), 2 = wall below it
+  const v = plug ? 1 : 0;
+  if (d === 1) for (let k = 0; k < 2; k++) grid[(ROOM(j) + k) * N + ROOM(i) + 2] = v;
+  else for (let k = 0; k < 2; k++) grid[(ROOM(j) + 2) * N + ROOM(i) + k] = v;
+}
+function genMaze() {
+  grid = new Uint8Array(N * N).fill(2);
+  for (let j = 0; j < R; j++) for (let i = 0; i < R; i++)
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) grid[(ROOM(j) + dy) * N + ROOM(i) + dx] = 0;
+  const vis = new Array(R * R).fill(false);
+  vis[BJ * R + BI] = true;                  // the shrine room is never part of the maze
+  const stack = [[0, 0]]; vis[0] = true;
+  const link = (i, j, ni, nj) => {
+    const plug = Math.random() < 0.12;
+    if (ni > i) openWall(i, j, 1, plug); else if (ni < i) openWall(ni, nj, 1, plug);
+    else if (nj > j) openWall(i, j, 2, plug); else openWall(ni, nj, 2, plug);
+  };
+  while (stack.length) {
+    const [i, j] = stack[stack.length - 1];
+    const nb = [];
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const ni = i + dx, nj = j + dy;
+      if (ni >= 0 && nj >= 0 && ni < R && nj < R && !vis[nj * R + ni]) nb.push([ni, nj]);
+    }
+    if (!nb.length) { stack.pop(); continue; }
+    const [ni, nj] = nb[rnd(nb.length)];
+    link(i, j, ni, nj); vis[nj * R + ni] = true; stack.push([ni, nj]);
+  }
+  for (let j = 0; j < R; j++) for (let i = 0; i < R; i++) {         // knock out some walls so the maze has loops
+    if ((i === BI && j === BJ)) continue;
+    if (i + 1 < R && !(i + 1 === BI && j === BJ) && grid[ROOM(j) * N + ROOM(i) + 2] === 2 && Math.random() < 0.2) openWall(i, j, 1, Math.random() < 0.15);
+    if (j + 1 < R && !(i === BI && j + 1 === BJ) && grid[(ROOM(j) + 2) * N + ROOM(i)] === 2 && Math.random() < 0.2) openWall(i, j, 2, Math.random() < 0.15);
+  }
+  openWall(BI, BJ - 1, 2, true);            // sealed door to the shrine
+}
+// wall state between room (i,j) and its neighbour in direction d: 0 open, 1 cracked, 2 stone, -1 none
+function doorState(i, j, d) {
+  const ni = i + DIRS[d][0], nj = j + DIRS[d][1];
+  if (ni < 0 || nj < 0 || ni >= R || nj >= R) return -1;
+  if (ni === BI && nj === BJ) return -1;
+  if (d === 1) return grid[ROOM(j) * N + ROOM(i) + 2];
+  if (d === 3) return grid[ROOM(j) * N + ROOM(i) - 1];
+  if (d === 2) return grid[(ROOM(j) + 2) * N + ROOM(i)];
+  return grid[(ROOM(j) - 1) * N + ROOM(i)];
+}
+function distField(ti, tj) {
+  const D = new Array(R * R).fill(1e9); D[tj * R + ti] = 0;
+  let ch = true;
+  while (ch) {
+    ch = false;
+    for (let j = 0; j < R; j++) for (let i = 0; i < R; i++) for (let d = 0; d < 4; d++) {
+      const s = doorState(i, j, d); if (s < 0 || s > 1) continue;
+      const n = (j + DIRS[d][1]) * R + (i + DIRS[d][0]);
+      const c = D[n] + (s === 1 ? 3 : 1);
+      if (c < D[j * R + i]) { D[j * R + i] = c; ch = true; }
+    }
+  }
+  return D;
+}
+
+/* ---------- level setup ---------- */
+function makeQueue(level) {
+  const anubis = Math.min(1 + level, 5), mummy = Math.min(3 + level, 6), scorpion = 6;
+  const q = [];
+  for (let i = 0; i < anubis; i++) q.push('anubis');
+  for (let i = 0; i < mummy; i++) q.push('mummy');
+  for (let i = 0; i < scorpion; i++) q.push('scorpion');
+  while (q.length < 20) q.push('scarab');
+  for (let i = q.length - 1; i > 0; i--) { const j = rnd(i + 1); [q[i], q[j]] = [q[j], q[i]]; }
+  return q;
+}
+function setSeal(v) { for (const [x, y] of SEAL) grid[y * N + x] = v; }
+function startLevel() {
+  genMaze();
+  BASE.alive = true;
+  tanks = []; bullets = []; fx = []; pups = []; PART = [];
+  LV = { frames: 0, lost: 0, bonus: 0, perfect: true, secs: 0 };
+  queue = makeQueue(G.level); spawnT = 60; spawnIdx = 0; spawnedN = 0;
+  shovelT = 0; freezeT = 0; respawnT = 0;
+  spawnPlayer();
+  phase = 'intro'; phaseT = 110;
+}
+function spawnPlayer() {
+  player = mkTank({ x: RPX(BI), y: RPX(BJ - 1), dir: 0, speed: 1.7, player: true, spawn: 50, shield: 220, kind: 'wizard' });
+  tanks.push(player);
+}
+const SPAWN_I = [0, 4, 7];
+function trySpawn() {
+  if (!queue.length) return;
+  const onField = tanks.filter(t => t.alive && !t.player).length;
+  const cap = G.level < 3 ? 4 : G.level < 5 ? 5 : 6;
+  if (onField >= cap) return;
+  const px = RPX(SPAWN_I[spawnIdx % 3]);
+  if (tanks.some(t => t.alive && ov(px, RPX(0), 32, 32, t.x, t.y, 32, 32))) return;
+  spawnIdx++;
+  const kind = queue.shift(), K = KINDS[kind];
+  const mul = Math.min(1 + 0.04 * (G.level - 1), 1.3);
+  spawnedN++;
+  tanks.push(mkTank({
+    x: px, y: RPX(0), tx: px, ty: RPX(0), dir: 2, kind, speed: K.speed * mul, hp: K.hp, maxhp: K.hp, bsp: K.bsp, spawn: 45,
+    flash: spawnedN === 4 || spawnedN === 11 || spawnedN === 18, hunter: Math.random() < K.hunter
+  }));
+}
+
+/* ---------- combat ---------- */
+function addBoom(x, y, big) { fx.push({ kind: 'boom', x, y, t: 0, max: big ? 26 : 16, r: big ? 26 : 15 }); }
+function addSpark(x, y) { fx.push({ kind: 'spark', x, y, t: 0, max: 8, r: 0 }); }
+function fire(t) {
+  if (t.cd > 0) return;
+  const mine = bullets.reduce((n, b) => n + (b.tank === t && b.alive ? 1 : 0), 0);
+  if (mine >= ((t.player && G.power >= 2) ? 2 : 1)) return;
+  const dx = DIRS[t.dir][0], dy = DIRS[t.dir][1];
+  bullets.push({
+    x: t.x + 16 + dx * 18, y: t.y + 16 + dy * 18, dir: t.dir, alive: true,
+    sp: t.player ? (G.power >= 1 ? 7 : 5) : t.bsp, own: t.player ? 'p' : 'e', dmg: t.player && G.power >= 3 ? 2 : 1, tank: t
+  });
+  t.cd = t.player ? 12 : 38;
+  if (t.player) sfx.cast();
+}
+function crumble(cx, cy) {                       // a cracked wall segment falls apart as one piece
+  const st = [[cx, cy]]; let n = 0;
+  while (st.length && n < 8) {
+    const [x, y] = st.pop();
+    if (x < 0 || y < 0 || x >= N || y >= N || grid[y * N + x] !== 1) continue;
+    grid[y * N + x] = 0; n++;
+    st.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+}
+function stepBullet(b) {
+  const dx = DIRS[b.dir][0], dy = DIRS[b.dir][1];
+  const ox = dy !== 0 ? 3 : 0, oy = dx !== 0 ? 3 : 0;
+  for (let i = 0; i < b.sp && b.alive; i++) {
+    b.x += dx; b.y += dy;
+    if (b.x < 0 || b.y < 0 || b.x > W || b.y > W) { b.alive = false; break; }
+    const lx = b.x + dx * 3, ly = b.y + dy * 3;
+    let hit = false;
+    for (const [qx, qy] of [[lx - ox, ly - oy], [lx + ox, ly + oy]]) {
+      const cx = Math.floor(qx / CELL), cy = Math.floor(qy / CELL);
+      if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+      const t = grid[cy * N + cx];
+      if (t === 1) { hit = true; crumble(cx, cy); sfx.crumble(); }
+      else if (t === 2) { hit = true; if (b.own === 'p') sfx.clink(); }
+    }
+    if (hit) { addSpark(b.x + dx * 3, b.y + dy * 3); b.alive = false; break; }
+    if (BASE.alive && ov(b.x - 3, b.y - 3, 6, 6, BASE.x * CELL, BASE.y * CELL, 32, 32)) { b.alive = false; destroyBase(); break; }
+    for (const t of tanks) {
+      if (!t.alive || t.spawn > 0) continue;
+      if ((b.own === 'p') === t.player) continue;
+      if (ov(b.x - 3, b.y - 3, 6, 6, t.x + 2, t.y + 2, 28, 28)) { b.alive = false; hitTank(t, b.dmg); break; }
+    }
+  }
+}
+function bulletClash() {
+  for (let i = 0; i < bullets.length; i++) for (let j = i + 1; j < bullets.length; j++) {
+    const a = bullets[i], c = bullets[j];
+    if (!a.alive || !c.alive || a.own === c.own) continue;
+    if (Math.abs(a.x - c.x) < 8 && Math.abs(a.y - c.y) < 8) { a.alive = false; c.alive = false; addSpark(a.x, a.y); }
+  }
+}
+function hitTank(t, dmg) {
+  if (t.player) { if (t.shield > 0) { sfx.clink(); return; } killPlayer(); return; }
+  if (t.flash) { t.flash = false; dropPowerup(); }
+  t.hp -= dmg; t.hurt = 6;
+  if (t.hp <= 0) killEnemy(t, false); else sfx.clink();
+}
+function killEnemy(t, byBomb) {
+  t.alive = false; G.score += KINDS[t.kind].pts;
+  if (t.flash && !byBomb) dropPowerup();
+  addBoom(t.x + 16, t.y + 16, false); sfx.boom();
+}
+function killPlayer() {
+  player.alive = false;
+  addBoom(player.x + 16, player.y + 16, true); sfx.boom();
+  G.lives--; G.power = 0; G.deaths++; LV.lost++;
+  if (G.lives <= 0) { overWhy = '法師倒下了'; phase = 'dead'; phaseT = 100; sfx.lose(); }
+  else respawnT = 70;
+}
+function destroyBase() {
+  BASE.alive = false;
+  addBoom(BASE.x * CELL + 16, BASE.y * CELL + 16, true); sfx.boom(); sfx.lose();
+  overWhy = '聖符被擊碎了'; phase = 'dead'; phaseT = 110;
+}
+
+/* ---------- power-ups ---------- */
+const PUP_BAG = ['star', 'star', 'star', 'helmet', 'helmet', 'seal', 'flame', 'glass', 'life'];
+function dropPowerup() {
+  sfx.drop();
+  for (let i = 0; i < 40; i++) {
+    const ri = rnd(R), rj = rnd(R);
+    if (ri === BI && rj === BJ) continue;
+    pups = [{ type: PUP_BAG[rnd(PUP_BAG.length)], x: RPX(ri), y: RPX(rj), t: 720 }];
+    return;
+  }
+}
+function collect(p) {
+  G.score += 500; sfx.pick();
+  switch (p.type) {
+    case 'star': G.power = Math.min(3, G.power + 1); break;
+    case 'helmet': player.shield = 600; break;
+    case 'seal': shovelT = 900; setSeal(2); break;
+    case 'flame': for (const t of tanks) if (t.alive && !t.player && t.spawn <= 0) killEnemy(t, true); break;
+    case 'glass': freezeT = 480; break;
+    case 'life': G.lives = Math.min(9, G.lives + 1); break;
+  }
+}
+
+/* ---------- input ---------- */
+const held = [];
+const KEYDIR = { ArrowUp: 0, KeyW: 0, ArrowRight: 1, KeyD: 1, ArrowDown: 2, KeyS: 2, ArrowLeft: 3, KeyA: 3 };
+const FIREKEYS = ['Space', 'KeyJ', 'KeyZ', 'KeyK'];
+let padDir = -1, padId = null, fireKey = false, fireTouch = false;
+const curDir = () => padDir >= 0 ? padDir : (held.length ? held[held.length - 1] : -1);
+const fireHeld = () => fireKey || fireTouch;
+
+addEventListener('keydown', e => {
+  if (e.code in KEYDIR) { e.preventDefault(); const d = KEYDIR[e.code]; if (!held.includes(d)) held.push(d); return; }
+  if (FIREKEYS.includes(e.code)) {
+    e.preventDefault(); fireKey = true;
+    if (phase === 'title' || phase === 'over' || phase === 'won') startGame();
+    return;
+  }
+  if (e.code === 'Enter') { if (phase === 'title' || phase === 'over' || phase === 'won') startGame(); return; }
+  if (e.code === 'KeyP') togglePause();
+  if (e.code === 'KeyM') toggleMute();
+});
+addEventListener('keyup', e => {
+  if (e.code in KEYDIR) { const i = held.indexOf(KEYDIR[e.code]); if (i >= 0) held.splice(i, 1); }
+  if (FIREKEYS.includes(e.code)) fireKey = false;
+});
+const pad = $('pad'), fireBtn = $('fireBtn');
+addEventListener('blur', () => { held.length = 0; fireKey = false; fireTouch = false; padDir = -1; padId = null; pad.dataset.d = '-1'; });
+
+function padCalc(e) {
+  const r = pad.getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  if (Math.hypot(dx, dy) < 14) return -1;
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0);
+}
+pad.addEventListener('pointerdown', e => {
+  e.preventDefault(); ac();
+  try { pad.setPointerCapture(e.pointerId); } catch (x) {}
+  padId = e.pointerId; padDir = padCalc(e); pad.dataset.d = padDir;
+});
+pad.addEventListener('pointermove', e => { if (e.pointerId !== padId) return; padDir = padCalc(e); pad.dataset.d = padDir; });
+const padEnd = e => { if (e.pointerId !== padId) return; padId = null; padDir = -1; pad.dataset.d = '-1'; };
+pad.addEventListener('pointerup', padEnd);
+pad.addEventListener('pointercancel', padEnd);
+fireBtn.addEventListener('pointerdown', e => {
+  e.preventDefault(); ac(); fireTouch = true; fireBtn.classList.add('on');
+  try { fireBtn.setPointerCapture(e.pointerId); } catch (x) {}
+});
+const fireEnd = () => { fireTouch = false; fireBtn.classList.remove('on'); };
+fireBtn.addEventListener('pointerup', fireEnd);
+fireBtn.addEventListener('pointercancel', fireEnd);
+for (const el of [pad, fireBtn]) el.addEventListener('contextmenu', e => e.preventDefault());
+
+function togglePause() { if (phase === 'title' || phase === 'over' || phase === 'won') return; paused = !paused; $('bPause').textContent = paused ? '繼續' : '暫停'; }
+function toggleMute() { muted = !muted; $('bMute').textContent = muted ? '開聲' : '靜音'; ac(); if (MASTER) MASTER.gain.value = muted ? 0 : 0.9; }
+$('bPause').addEventListener('click', e => { togglePause(); e.currentTarget.blur(); });
+$('bMute').addEventListener('click', e => { toggleMute(); e.currentTarget.blur(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && !paused && phase !== 'title' && phase !== 'over' && phase !== 'won') togglePause(); });
+
+/* ---------- screens ---------- */
+const overlay = $('ov');
+function showTitle() {
+  overlay.hidden = false;
+  overlay.innerHTML =
+    '<h2>守住<b>聖符</b></h2>' +
+    '<p>墓穴迷宮裡的怪物正湧向安卡聖符。你是法師，每關擊退 20 隻怪物，闖過 8 關，聖符就能永遠亮著。</p>' +
+    '<div class="foes" id="foes"></div>' +
+    '<p class="dim">龜裂的牆可以轟開，石牆不行。閃光的怪物被擊中會掉落道具：聖星升級魔力、護符短暫無敵、封印石加固聖符前的門、烈焰清場、沙漏凍結怪物、愛心加一條命。</p>' +
+    '<button type="button" data-start>進入墓穴</button>';
+  const box = $('foes');
+  if (box && box.appendChild) {
+    for (const k of ['scarab', 'scorpion', 'mummy', 'anubis']) {
+      const d = document.createElement('div'), c = document.createElement('canvas');
+      c.width = 32; c.height = 32;
+      const cx = c.getContext('2d'); cx.imageSmoothingEnabled = false; cx.drawImage(sprite(k, 2), 0, 0);
+      const n = document.createElement('span'); n.textContent = KINDS[k].name;
+      const s = document.createElement('small'); s.textContent = '耐 ' + KINDS[k].hp + ' 擊';
+      d.appendChild(c); d.appendChild(n); d.appendChild(s); box.appendChild(d);
+    }
+  }
+}
+function showOver() {
+  lockT = frameN + 90;
+  overlay.hidden = false;
+  overlay.innerHTML =
+    '<h2>聖符<b>碎裂</b></h2>' +
+    '<p>' + overWhy + '。你守到第 ' + G.level + ' 關，分數 ' + G.score + '。</p>' +
+    '<p class="dim">最高分 ' + G.hi + '</p>' +
+    '<button type="button" data-start>再入墓穴</button>';
+}
+function showWin() {
+  lockT = frameN + 120;
+  const rank = G.deaths === 0 ? '無傷守護者' : G.deaths <= 3 ? '聖符大祭司' : '守墓法師';
+  overlay.hidden = false;
+  overlay.innerHTML =
+    '<h2>聖符<b>永明</b></h2>' +
+    '<p class="dim">破關　全部 ' + FINAL + ' 關</p>' +
+    '<p>聖符重新亮起，光沿著甬道一路亮到沙面。風停了，牆裡的東西慢慢躺了回去。老師那句話，你現在懂了：牆會幫你，但守住它的是你。</p>' +
+    '<div class="stats"><span>稱號</span><span>' + rank + '</span><span>總分</span><span>' + G.score + '</span>' +
+    '<span>倒下次數</span><span>' + G.deaths + '</span><span>最高分</span><span>' + G.hi + (G.newRec ? '　新紀錄！' : '') + '</span></div>' +
+    '<button type="button" data-start>再守一次</button>';
+}
+overlay.addEventListener('click', e => { if (e.target.closest('[data-start]')) startGame(); });
+function startGame() {
+  if (phase !== 'title' && phase !== 'over' && phase !== 'won') return;
+  if (frameN < lockT) return;
+  ac(); sfx.start();
+  G = { level: 1, score: 0, lives: 3, power: 0, hi: G.hi, deaths: 0 };
+  overlay.hidden = true; paused = false; $('bPause').textContent = '暫停';
+  startLevel();
+}
+
+/* ---------- update ---------- */
+const curPlayerOk = () => player && player.alive;
+const lane = v => Math.max(16, Math.min(352, 16 + 48 * Math.round((v - 16) / 48)));
+function updatePlayer(t) {
+  const d = curDir();
+  if (d >= 0) {
+    if (d !== t.dir) {
+      if (((d + 2) & 3) === t.dir) t.dir = d;
+      else {
+        const vertical = d === 0 || d === 2;
+        const cur = vertical ? t.x : t.y, ln = lane(cur);
+        if (Math.abs(cur - ln) <= 12) {            // near a room: turn and snap onto the lane
+          const nx = vertical ? ln : t.x, ny = vertical ? t.y : ln;
+          if (!solidAt(nx, ny) && !tankBlocked(t, nx, ny)) { t.x = nx; t.y = ny; t.dir = d; }
+        }                                          // in a corridor: keep going, the turn happens at the next room
+      }
+    }
+    if (moveTank(t, t.dir, t.speed)) { t.ft += t.speed; if (t.ft >= 8) { t.ft = 0; t.frame ^= 1; } }
+  }
+  if (fireHeld()) fire(t);
+}
+const roomOf = t => [clampR(Math.round((t.x - 16) / 48)), clampR(Math.round((t.y - 16) / 48))];
+function aimAt(t, px, py) {
+  const dx = px - (t.x + 16), dy = py - (t.y + 16);
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0);
+}
+function enemyThink(t) {
+  const [i, j] = roomOf(t);
+  const hunt = t.hunter && curPlayerOk();
+  const [gi, gj] = hunt ? roomOf(player) : [BI, BJ - 1];
+  if (i === gi && j === gj) {                      // arrived: face the target and shoot
+    t.dir = hunt ? aimAt(t, player.x + 16, player.y + 16) : 2;
+    t.hold = true; t.aiT = 70 + rnd(40); return;
+  }
+  const D = distField(gi, gj);
+  const opts = [];
+  for (let d = 0; d < 4; d++) {
+    const s = doorState(i, j, d); if (s < 0 || s > 1) continue;
+    opts.push({ d, v: D[(j + DIRS[d][1]) * R + (i + DIRS[d][0])] });
+  }
+  if (!opts.length) { t.hold = true; t.aiT = 40; return; }
+  let pick;
+  if (Math.random() < 0.8) { opts.sort((a, b) => a.v - b.v); pick = opts[0]; }
+  else pick = opts[rnd(opts.length)];
+  t.dir = pick.d;
+  t.fx = t.x; t.fy = t.y;
+  t.tx = RPX(i + DIRS[pick.d][0]); t.ty = RPX(j + DIRS[pick.d][1]);
+  t.stuck = 0;
+}
+function updateEnemy(t) {
+  if (freezeT > 0) return;
+  if (t.hold) {
+    if (curPlayerOk() && t.hunter) t.dir = aimAt(t, player.x + 16, player.y + 16);
+    if (t.cd <= 0 && Math.random() < 0.07) fire(t);
+    if (--t.aiT <= 0) t.hold = false;
+    return;
+  }
+  if (t.x === t.tx && t.y === t.ty) { enemyThink(t); if (t.hold) return; }
+  const remaining = Math.abs(t.tx - t.x) + Math.abs(t.ty - t.y);
+  const step = Math.min(t.speed, remaining);
+  const dir = t.tx > t.x ? 1 : t.tx < t.x ? 3 : t.ty > t.y ? 2 : 0;
+  t.dir = dir;
+  if (moveTank(t, dir, step)) {
+    t.stuck = 0;
+    if (Math.abs(t.tx - t.x) < 0.001 && Math.abs(t.ty - t.y) < 0.001) { t.x = t.tx; t.y = t.ty; }
+    t.ft += t.speed; if (t.ft >= 8) { t.ft = 0; t.frame ^= 1; }
+  } else {
+    t.stuck++;
+    const ahead = [t.x + 16 + DIRS[dir][0] * 20, t.y + 16 + DIRS[dir][1] * 20];
+    const wall = grid[Math.floor(ahead[1] / CELL) * N + Math.floor(ahead[0] / CELL)] === 1;
+    if (wall && t.cd <= 0 && Math.random() < 0.25) fire(t);        // blast through a cracked wall
+    if (t.stuck > 90) { t.stuck = 0; t.tx = t.fx; t.ty = t.fy; }          // boxed in: go back to the room we came from
+  }
+  if (t.cd <= 0 && curPlayerOk() && Math.random() < 0.03) {
+    const px = player.x + 16, py = player.y + 16;
+    const cx = t.x + 16, cy = t.y + 16;
+    const inLine = (dir === 0 && Math.abs(px - cx) < 20 && py < cy) || (dir === 2 && Math.abs(px - cx) < 20 && py > cy) ||
+                   (dir === 1 && Math.abs(py - cy) < 20 && px > cx) || (dir === 3 && Math.abs(py - cy) < 20 && px < cx);
+    if (inLine) fire(t);
+  }
+}
+function updateWorld(canSpawn, ctrl) {
+  if (freezeT > 0) freezeT--;
+  if (shovelT > 0) {
+    shovelT--;
+    if (shovelT === 0) setSeal(1);
+    else if (shovelT < 180) setSeal(((shovelT >> 3) & 1) ? 1 : 2);
+  }
+  for (const t of tanks) {
+    if (!t.alive) continue;
+    if (t.cd > 0) t.cd--;
+    if (t.shield > 0) t.shield--;
+    if (t.hurt > 0) t.hurt--;
+    if (t.spawn > 0) { t.spawn--; continue; }
+    if (t.player) { if (ctrl) updatePlayer(t); } else updateEnemy(t);
+  }
+  for (const b of bullets) stepBullet(b);
+  bulletClash();
+  bullets = bullets.filter(b => b.alive);
+  for (const p of pups) {
+    p.t--;
+    if (p.t <= 0) p.dead = true;
+    else if (ctrl && curPlayerOk() && player.spawn <= 0 && ov(player.x, player.y, 32, 32, p.x, p.y, 32, 32)) { collect(p); p.dead = true; }
+  }
+  pups = pups.filter(p => !p.dead);
+  tanks = tanks.filter(t => t.alive);
+  for (const f of fx) f.t++;
+  fx = fx.filter(f => f.t < f.max);
+  if (ctrl && !curPlayerOk() && respawnT > 0 && --respawnT === 0) spawnPlayer();
+  if (canSpawn && queue.length && --spawnT <= 0) { spawnT = Math.max(50, 150 - G.level * 10); trySpawn(); }
+}
+function update() {
+  frameN++;
+  if (phase === 'title' || phase === 'over' || phase === 'won') return;
+  if (phase === 'intro') { if (--phaseT <= 0) phase = 'play'; return; }
+  if (phase === 'clear') {
+    updateWorld(false, true); stepPart();
+    if (phaseT % 4 === 0) confetti(1);
+    if (--phaseT <= 0) { G.level++; startLevel(); }
+    return;
+  }
+  if (phase === 'win') {
+    updateWorld(false, true); stepPart(); confetti(1);
+    if (phaseT % 18 === 0) { firework(50 + Math.random() * (W - 100), 50 + Math.random() * 200); sfx.pop(); }
+    if (--phaseT <= 0) { G.newRec = G.score > G.hi; saveHi(); phase = 'won'; showWin(); }
+    return;
+  }
+  if (phase === 'dead') {
+    updateWorld(false, false);
+    if (--phaseT <= 0) {
+      saveHi();
+      phase = 'over'; showOver();
+    }
+    return;
+  }
+  updateWorld(true, true);
+  if (phase === 'play') LV.frames++;
+  if (phase === 'play' && !queue.length && !tanks.some(t => t.alive && !t.player)) onClear();
+}
+function saveHi() { if (G.score > G.hi) { G.hi = G.score; try { localStorage.setItem('shengfu-hi', String(G.hi)); } catch (e) {} } }
+const PCOL = ['#f7cf6a', '#37d6c4', '#2a4fb0', '#f1e6c8', '#e0a93a'];
+function confetti(n) {
+  for (let i = 0; i < n; i++) PART.push({ x: Math.random() * W, y: -6, vx: (Math.random() - 0.5) * 0.8, vy: 0.9 + Math.random() * 1.5, c: PCOL[(Math.random() * 5) | 0], s: 2 + ((Math.random() * 3) | 0), t: 0, max: 400, g: 0, sw: 1 + Math.random() * 6 });
+}
+function firework(x, y) {
+  const c = PCOL[(Math.random() * 5) | 0];
+  for (let i = 0; i < 36; i++) { const a = i / 36 * Math.PI * 2, sp = 1 + Math.random() * 2.2; PART.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, c, s: 3, t: 0, max: 50 + Math.random() * 25, g: 0.04, sw: 0 }); }
+}
+function stepPart() {
+  for (const p of PART) { p.t++; p.x += p.vx + (p.sw ? Math.sin(p.t / 9 + p.sw) * 0.6 : 0); p.y += p.vy; p.vy += p.g; if (p.g) p.vx *= 0.985; }
+  PART = PART.filter(p => p.t < p.max && p.y < W + 10);
+}
+function onClear() {
+  LV.secs = Math.round(LV.frames / 60); LV.perfect = LV.lost === 0;
+  LV.bonus = G.level * 500 + (LV.perfect ? 1000 : 0);
+  G.score += LV.bonus;
+  const bx = BASE.x * CELL + 16, by = BASE.y * CELL + 12;
+  for (let i = 0; i < 40; i++) confetti(1);
+  firework(bx, by - 10);
+  if (G.level >= FINAL) { phase = 'win'; phaseT = 300; sfx.win(); firework(90, 120); firework(W - 90, 120); }
+  else { phase = 'clear'; phaseT = 210; sfx.clear(); }
+}
+function drawRays() {
+  const cx = BASE.x * CELL + 16, cy = BASE.y * CELL + 12, rot = frameN / 140;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 10; i++) {
+    const a = rot + i * Math.PI / 5, w = 0.11;
+    ctx.fillStyle = 'rgba(247,207,106,' + (0.07 + 0.03 * Math.sin(frameN / 15 + i)) + ')';
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a - w) * 520, cy + Math.sin(a - w) * 520); ctx.lineTo(cx + Math.cos(a + w) * 520, cy + Math.sin(a + w) * 520); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawPart() {
+  for (const p of PART) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, (p.max - p.t) / 25));
+    ctx.fillStyle = p.c; ctx.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s);
+  }
+  ctx.globalAlpha = 1;
+}
+function clearPanel() {
+  const el = 210 - phaseT, m = Math.floor(LV.secs / 60), sec = String(LV.secs % 60).padStart(2, '0');
+  const rows = [['擊退怪物', '20 / 20'], ['用時', m + ':' + sec], ['過關獎勵', '+' + G.level * 500], ['無傷獎勵', LV.perfect ? '+1000' : '—'], ['目前分數', String(G.score)]];
+  const h = 76 + rows.length * 24, y0 = Math.round(W / 2 - h / 2) - 8;
+  ctx.fillStyle = 'rgba(12,8,4,.9)'; ctx.fillRect(48, y0, W - 96, h);
+  ctx.fillStyle = '#e0a93a'; ctx.fillRect(48, y0, W - 96, 2); ctx.fillRect(48, y0 + h - 2, W - 96, 2);
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#f7cf6a'; ctx.font = '900 26px "Noto Serif TC",serif'; ctx.fillText('第 ' + G.level + ' 關　聖符無恙', W / 2, y0 + 28);
+  rows.forEach((r, i) => {
+    if (el < 28 + i * 18) return;
+    const y = y0 + 62 + i * 24;
+    ctx.font = '14px "Noto Sans TC",sans-serif';
+    ctx.textAlign = 'left'; ctx.fillStyle = '#b09a74'; ctx.fillText(r[0], 74, y);
+    ctx.textAlign = 'right'; ctx.fillStyle = i === 4 ? '#f1e6c8' : '#f7cf6a'; ctx.fillText(r[1], W - 74, y);
+  });
+  ctx.textAlign = 'center'; ctx.fillStyle = '#b09a74'; ctx.font = '12px "Noto Sans TC",sans-serif';
+  ctx.fillText('下一關即將開始', W / 2, y0 + h - 14);
+}
+
+/* ---------- render ---------- */
+function drawStar(cx, cy, r) {
+  ctx.fillStyle = '#ffe9a8';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r * 0.28, cy - r * 0.28); ctx.lineTo(cx + r, cy);
+  ctx.lineTo(cx + r * 0.28, cy + r * 0.28); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r * 0.28, cy + r * 0.28);
+  ctx.lineTo(cx - r, cy); ctx.lineTo(cx - r * 0.28, cy - r * 0.28); ctx.closePath(); ctx.fill();
+}
+function drawTank(t) {
+  if (!t.alive) return;
+  if (t.spawn > 0) { const k = t.spawn % 16; drawStar(t.x + 16, t.y + 16, 5 + (k < 8 ? k : 16 - k) * 1.6); return; }
+  const img = sprite(t.player ? 'w' + G.power : t.kind, t.dir);
+  const x = Math.round(t.x), y = Math.round(t.y) + (t.frame ? -2 : 0);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x + 16, y + 29, 11, 4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.drawImage(img, x, y);
+  if (t.hurt > 0) { ctx.globalAlpha = 0.85; ctx.drawImage(silhouette(img, '#ffffff'), x, y); ctx.globalAlpha = 1; }
+  else if (t.flash && ((frameN >> 3) & 1)) { ctx.globalAlpha = 0.6; ctx.drawImage(silhouette(img, '#ffd24a'), x, y); ctx.globalAlpha = 1; }
+  if (!t.player && t.hp < t.maxhp) {
+    ctx.fillStyle = '#000'; ctx.fillRect(x + 4, y - 4, 24, 4);
+    ctx.fillStyle = '#e24a3a'; ctx.fillRect(x + 5, y - 3, Math.max(0, 22 * t.hp / t.maxhp), 2);
+  }
+  if (t.shield > 0 && ((frameN >> 2) & 1)) {
+    ctx.strokeStyle = '#f7cf6a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(t.x + 16, t.y + 16, 19, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+function drawBase() {
+  ctx.save(); ctx.translate(BASE.x * CELL, BASE.y * CELL);
+  ctx.fillStyle = '#4a3a22'; ctx.fillRect(3, 24, 26, 6);
+  ctx.fillStyle = '#6a5636'; ctx.fillRect(5, 22, 22, 4);
+  if (BASE.alive) {
+    const glow = 0.25 + 0.15 * Math.sin(frameN / 12);
+    const g = ctx.createRadialGradient(16, 14, 2, 16, 14, 20);
+    g.addColorStop(0, 'rgba(247,207,106,' + (glow + 0.3) + ')'); g.addColorStop(1, 'rgba(247,207,106,0)');
+    ctx.fillStyle = g; ctx.fillRect(-4, -6, 40, 40);
+    ctx.strokeStyle = '#f7cf6a'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(16, 8, 5, 6, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(16, 14); ctx.lineTo(16, 24); ctx.moveTo(8, 17); ctx.lineTo(24, 17); ctx.stroke();
+    ctx.strokeStyle = '#a8761c'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(17.5, 15); ctx.lineTo(17.5, 24); ctx.stroke();
+  } else {
+    ctx.strokeStyle = '#6a5a40'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(11, 22, 5, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(20, 24); ctx.lineTo(24, 16); ctx.moveTo(12, 24); ctx.lineTo(8, 24); ctx.stroke();
+    ctx.fillStyle = '#8a2a10'; ctx.fillRect(15, 20, 2, 2);
+  }
+  ctx.restore();
+}
+function icon(type, cx, cy) {
+  ctx.save(); ctx.translate(cx, cy);
+  switch (type) {
+    case 'star':
+      ctx.fillStyle = '#f2c14e'; ctx.beginPath();
+      for (let i = 0; i < 10; i++) { const r = i % 2 ? 5 : 11, a = -Math.PI / 2 + i * Math.PI / 5; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      ctx.closePath(); ctx.fill(); break;
+    case 'helmet':
+      ctx.fillStyle = '#37d6c4'; ctx.beginPath();
+      ctx.moveTo(-8, -9); ctx.lineTo(8, -9); ctx.lineTo(8, 2);
+      ctx.quadraticCurveTo(8, 9, 0, 11); ctx.quadraticCurveTo(-8, 9, -8, 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#f2c14e'; ctx.fillRect(-1.5, -6, 3, 12); ctx.fillRect(-5, -2, 10, 3); break;
+    case 'seal':
+      ctx.fillStyle = '#9a9aa6'; ctx.fillRect(-9, -7, 18, 14);
+      ctx.fillStyle = '#c9c9d4'; ctx.fillRect(-9, -7, 18, 3);
+      ctx.fillStyle = '#f2c14e'; ctx.fillRect(-1, -2, 2, 7); ctx.fillRect(-4, 1, 8, 2); break;
+    case 'flame':
+      ctx.fillStyle = '#ff7a2f'; ctx.beginPath(); ctx.moveTo(0, -11);
+      ctx.quadraticCurveTo(10, -2, 6, 6); ctx.quadraticCurveTo(0, 12, -6, 6); ctx.quadraticCurveTo(-9, -2, 0, -11); ctx.fill();
+      ctx.fillStyle = '#ffd24a'; ctx.beginPath(); ctx.moveTo(0, -3);
+      ctx.quadraticCurveTo(5, 2, 3, 6); ctx.quadraticCurveTo(0, 9, -3, 6); ctx.quadraticCurveTo(-5, 2, 0, -3); ctx.fill(); break;
+    case 'glass':
+      ctx.fillStyle = '#efe3d0'; ctx.beginPath();
+      ctx.moveTo(-7, -10); ctx.lineTo(7, -10); ctx.lineTo(1, 0); ctx.lineTo(7, 10); ctx.lineTo(-7, 10); ctx.lineTo(-1, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#e0a93a'; ctx.fillRect(-4, 5, 8, 4); ctx.fillRect(-1, 0, 2, 5); break;
+    case 'life':
+      ctx.fillStyle = '#ff4f6a'; ctx.beginPath(); ctx.moveTo(0, 9);
+      ctx.bezierCurveTo(-14, -2, -6, -12, 0, -5); ctx.bezierCurveTo(6, -12, 14, -2, 0, 9); ctx.fill(); break;
+  }
+  ctx.restore();
+}
+function drawPup(p) {
+  if (p.t < 180 && ((frameN >> 3) & 1)) return;
+  ctx.fillStyle = '#14100d'; ctx.fillRect(p.x + 1, p.y + 1, 30, 30);
+  ctx.strokeStyle = ((frameN >> 4) & 1) ? '#37d6c4' : '#f2c14e'; ctx.lineWidth = 2;
+  ctx.strokeRect(p.x + 2, p.y + 2, 28, 28);
+  icon(p.type, p.x + 16, p.y + 16);
+}
+function banner(txt, sub) {
+  ctx.fillStyle = 'rgba(12,8,4,.82)'; ctx.fillRect(0, W / 2 - 42, W, 84);
+  ctx.fillStyle = '#e0a93a'; ctx.fillRect(0, W / 2 - 42, W, 2); ctx.fillRect(0, W / 2 + 40, W, 2);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#f1e6c8'; ctx.font = '900 32px "Noto Serif TC",serif'; ctx.fillText(txt, W / 2, W / 2 - 8);
+  if (sub) { ctx.fillStyle = '#b09a74'; ctx.font = '13px "Noto Sans TC",sans-serif'; ctx.fillText(sub, W / 2, W / 2 + 22); }
+}
+function render() {
+  ctx.drawImage(floorImg, 0, 0);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const t = grid[y * N + x]; if (!t) continue;
+    ctx.drawImage(t === 1 ? CRACK : STONE[((x * 7 + y * 13 + (x * y)) & 0xff) % 8], x * CELL, y * CELL);
+  }
+  if (phase === 'clear' || phase === 'win') drawRays();
+  drawBase();
+  for (const p of pups) drawPup(p);
+  for (const t of tanks) drawTank(t);
+  for (const b of bullets) {
+    const px = Math.round(b.x), py = Math.round(b.y), dx = DIRS[b.dir][0], dy = DIRS[b.dir][1];
+    ctx.fillStyle = b.own === 'p' ? 'rgba(55,214,196,.35)' : 'rgba(155,224,74,.35)';
+    ctx.beginPath(); ctx.arc(px - dx * 4, py - dy * 4, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = b.own === 'p' ? '#37d6c4' : '#9be04a';
+    ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(px - 1, py - 1, 2, 2);
+  }
+  for (const f of fx) {
+    const k = f.t / f.max;
+    if (f.kind === 'spark') { ctx.fillStyle = 'rgba(255,220,150,' + (1 - k) + ')'; ctx.fillRect(f.x - 3, f.y - 3, 6, 6); continue; }
+    ctx.fillStyle = 'rgba(255,' + ((200 - 120 * k) | 0) + ',60,' + (1 - k) + ')';
+    ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.3 + k), 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,220,' + ((1 - k) * 0.9) + ')';
+    ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.3 + k) * 0.45, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.drawImage(vigImg, 0, 0);
+  drawPart();
+  if (paused) banner('暫停', '按 P 或點「繼續」');
+  else if (phase === 'intro') banner('第 ' + G.level + ' 關', (G.level >= FINAL ? '最終關：' : '') + '擊退 20 隻怪物，守住聖符');
+  else if (phase === 'clear') clearPanel();
+  else if (phase === 'win') banner('破關', '聖符永遠亮著');
+}
+
+/* ---------- hud ---------- */
+let lastHud = '';
+function hud() {
+  const left = queue.length + tanks.reduce((n, t) => n + (t.alive && !t.player ? 1 : 0), 0);
+  const s = [G.level, G.lives, left, G.power, G.score].join('|');
+  if (s === lastHud) return; lastHud = s;
+  $('hLevel').textContent = G.level;
+  $('hLives').textContent = Math.max(0, G.lives);
+  $('hEnemy').textContent = left;
+  $('hPower').textContent = '★'.repeat(G.power) + '☆'.repeat(3 - G.power);
+  $('hScore').textContent = G.score;
+}
+
+/* ---------- loop ---------- */
+let last = 0, acc = 0;
+const STEP = 1000 / 60;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  if (!last) last = ts;
+  let dt = ts - last; last = ts; if (dt > 100) dt = 100;
+  acc += dt;
+  while (acc >= STEP) { if (!paused) update(); acc -= STEP; }
+  render(); hud();
+}
+
+startLevel(); phase = 'title'; showTitle();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
